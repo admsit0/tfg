@@ -47,6 +47,7 @@ def train_one_epoch(model, loader, optimizer, loss_fn, regs, device, collector=N
     epoch_start_time = time.time()
 
     for batch_idx, (x, y) in enumerate(tqdm(loader, desc='train', leave=False)):
+        # ...existing code...
         batch_start_time = time.time()
         logger.info(f"Processing batch {batch_idx + 1}/{len(loader)}")
         x, y = x.to(device), y.to(device)
@@ -68,14 +69,9 @@ def train_one_epoch(model, loader, optimizer, loss_fn, regs, device, collector=N
         batch_time = time.time() - batch_start_time
         logger.info(f"Batch {batch_idx + 1} completed in {batch_time:.2f} seconds.")
 
-        if time_logger:
-            time_logger.writerow({"step": f"train_batch_{batch_idx + 1}", "time": batch_time})
-
     epoch_time = time.time() - epoch_start_time
     logger.info(f"Finished training for one epoch in {epoch_time:.2f} seconds.")
-    if time_logger:
-        time_logger.writerow({"step": "train_epoch", "time": epoch_time})
-    return total_loss / total_n, total_correct / total_n
+    return total_loss / total_n, total_correct / total_n, epoch_time
 
 @torch.no_grad()
 def evaluate(model, loader, loss_fn, device, time_logger=None):
@@ -85,6 +81,7 @@ def evaluate(model, loader, loss_fn, device, time_logger=None):
     eval_start_time = time.time()
 
     for batch_idx, (x, y) in enumerate(tqdm(loader, desc='eval', leave=False)):
+        # ...existing code...
         batch_start_time = time.time()
         logger.info(f"Evaluating batch {batch_idx + 1}/{len(loader)}")
         x, y = x.to(device), y.to(device)
@@ -98,14 +95,9 @@ def evaluate(model, loader, loss_fn, device, time_logger=None):
         batch_time = time.time() - batch_start_time
         logger.info(f"Batch {batch_idx + 1} evaluated in {batch_time:.2f} seconds.")
 
-        if time_logger:
-            time_logger.writerow({"step": f"eval_batch_{batch_idx + 1}", "time": batch_time})
-
     eval_time = time.time() - eval_start_time
     logger.info(f"Finished evaluation in {eval_time:.2f} seconds.")
-    if time_logger:
-        time_logger.writerow({"step": "eval_epoch", "time": eval_time})
-    return total_loss / total_n, total_correct / total_n
+    return total_loss / total_n, total_correct / total_n, eval_time
 
 def main():
     logger.info("Starting training process...")
@@ -162,79 +154,71 @@ def main():
     storage_manager = StorageManager(base_dir=out_dir)
     best_acc = 0.0
 
-    # Open a CSV file to log time measurements
-    time_log_path = os.path.join(out_dir, "time_log.csv")
-    with open(time_log_path, "w", newline="") as time_log_file:
-        time_logger = csv.DictWriter(time_log_file, fieldnames=["step", "time"])
-        time_logger.writeheader()
 
-        total_training_time = time.time()
+    total_training_time = time.time()
 
-        for epoch in range(cfg['trainer']['max_epochs']):
-            logger.info(f"Starting epoch {epoch + 1}/{cfg['trainer']['max_epochs']}")
-            epoch_start_time = time.time()
+    for epoch in range(cfg['trainer']['max_epochs']):
+        logger.info(f"Starting epoch {epoch + 1}/{cfg['trainer']['max_epochs']}")
 
-            train_loss, train_acc = train_one_epoch(model, train_loader, optimizer, loss_fn, regs, device, collector, time_logger)
-            val_loss, val_acc = evaluate(model, test_loader, loss_fn, device, time_logger)
+        train_loss, train_acc, train_epoch_time = train_one_epoch(model, train_loader, optimizer, loss_fn, regs, device, collector)
+        val_loss, val_acc, val_epoch_time = evaluate(model, test_loader, loss_fn, device)
 
-            epoch_time = time.time() - epoch_start_time
-            logger.info(f"Epoch {epoch + 1} completed in {epoch_time:.2f} seconds.")
+        logger.info(f"Epoch {epoch + 1} completed in {train_epoch_time:.2f} seconds (train), {val_epoch_time:.2f} seconds (val).")
 
-            log_row = dict(epoch=epoch, train_loss=train_loss, train_acc=train_acc, val_loss=val_loss, val_acc=val_acc)
-            logger.info(f"Epoch {epoch + 1} results: {log_row}")
-            logger.info("Saving metrics...")
-            csv_logger.log(**log_row)
+        log_row = dict(epoch=epoch, train_loss=train_loss, train_acc=train_acc, val_loss=val_loss, val_acc=val_acc, train_epoch_time=train_epoch_time, val_epoch_time=val_epoch_time)
+        logger.info(f"Epoch {epoch + 1} results: {log_row}")
+        logger.info("Saving metrics...")
+        csv_logger.log(**log_row)
 
-            if collector is not None and (epoch + 1) % cfg['analysis'].get('every', 5) == 0:
-                logger.info("Aggregating activation statistics...")
-                collector_start_time = time.time()
-                stats = collector.aggregate()
+        if collector is not None and (epoch + 1) % cfg['analysis'].get('every', 5) == 0:
+            logger.info("Aggregating activation statistics...")
+            collector_start_time = time.time()
+            stats = collector.aggregate()
 
-                # Analyze activation distributions
-                activation_distributions = {}
-                for key, value in stats.items():
-                    if isinstance(value, np.ndarray):
-                        activation_distributions[key] = {
-                            'mean': float(value.mean()),
-                            'std': float(value.std()),
-                            'histogram': np.histogram(value, bins=10)[0].tolist()
-                        }
-                    else:
-                        activation_distributions[key] = value
+            # Analyze activation distributions
+            activation_distributions = {}
+            for key, value in stats.items():
+                if isinstance(value, np.ndarray):
+                    activation_distributions[key] = {
+                        'mean': float(value.mean()),
+                        'std': float(value.std()),
+                        'histogram': np.histogram(value, bins=10)[0].tolist()
+                    }
+                else:
+                    activation_distributions[key] = value
 
-                # Ensure all values in activation_distributions are JSON serializable (recursive handling)
-                def make_serializable(obj):
-                    if isinstance(obj, dict):
-                        return {key: make_serializable(value) for key, value in obj.items()}
-                    elif isinstance(obj, list):
-                        return [make_serializable(item) for item in obj]
-                    elif isinstance(obj, np.ndarray):
-                        return obj.tolist()
-                    elif isinstance(obj, (np.float32, np.float64)):
-                        return float(obj)
-                    elif isinstance(obj, (np.int32, np.int64)):
-                        return int(obj)
-                    return obj
+            # Ensure all values in activation_distributions are JSON serializable (recursive handling)
+            def make_serializable(obj):
+                if isinstance(obj, dict):
+                    return {key: make_serializable(value) for key, value in obj.items()}
+                elif isinstance(obj, list):
+                    return [make_serializable(item) for item in obj]
+                elif isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                elif isinstance(obj, (np.float32, np.float64)):
+                    return float(obj)
+                elif isinstance(obj, (np.int32, np.int64)):
+                    return int(obj)
+                return obj
 
-                activation_distributions = make_serializable(activation_distributions)
+            activation_distributions = make_serializable(activation_distributions)
 
-                # Save activation distributions to JSON
-                with open(os.path.join(out_dir, f'activation_distributions_epoch{epoch + 1}.json'), 'w') as f:
-                    json.dump(activation_distributions, f)
-                collector.storage.clear()
-                collector_time = time.time() - collector_start_time
-                logger.info(f"Activation statistics aggregated in {collector_time:.2f} seconds.")
-                time_logger.writerow({"step": "activation_stats", "time": collector_time})
+            # Save activation distributions to JSON
+            with open(os.path.join(out_dir, f'activation_distributions_epoch{epoch + 1}.json'), 'w') as f:
+                json.dump(activation_distributions, f)
+            collector.storage.clear()
+            collector_time = time.time() - collector_start_time
+            logger.info(f"Activation statistics aggregated in {collector_time:.2f} seconds.")
 
-            if val_acc > best_acc:
-                logger.info("New best accuracy achieved. Saving model...")
-                torch.save({'model': model.state_dict(), 'epoch': epoch}, os.path.join(out_dir, 'best.pt'))
+        if val_acc > best_acc:
+            logger.info("New best accuracy achieved. Saving model...")
+            torch.save({'model': model.state_dict(), 'epoch': epoch}, os.path.join(out_dir, 'best.pt'))
 
-        total_training_time = time.time() - total_training_time
-        logger.info(f"Total training process completed in {total_training_time:.2f} seconds.")
-        logger.info("Saving final model...")
-        torch.save({'model': model.state_dict(), 'epoch': cfg['trainer']['max_epochs'] - 1}, os.path.join(out_dir, 'last.pt'))
-        logger.info("Training process completed.")
+    total_training_time = time.time() - total_training_time
+    logger.info(f"Total training process completed in {total_training_time:.2f} seconds.")
+    logger.info("Saving final model...")
+    torch.save({'model': model.state_dict(), 'epoch': cfg['trainer']['max_epochs'] - 1}, os.path.join(out_dir, 'last.pt'))
+    logger.info("Training process completed.")
 
 if __name__ == '__main__':
     main()
