@@ -1,0 +1,39 @@
+{
+  "data": {
+    "data_dir": "./data",
+    "batch_size": 128,
+    "subset_ratio": 0.01,
+    "test_subset_ratio": 0.01,
+    "num_workers": 8,
+    "augment": false
+  },
+  "model": {
+    "name": "simple_cnn",
+    "kwargs": {
+      "dropout": 0.0
+    }
+  },
+  "loss": {
+    "name": "cross_entropy",
+    "kwargs": {}
+  },
+  "optim": {
+    "name": "sgd",
+    "lr": 0.2,
+    "weight_decay": 0.05
+  },
+  "trainer": {
+    "max_epochs": 100,
+    "out_dir": "runs",
+    "seed": 42
+  },
+  "regularizers": [],
+  "analysis": {
+    "collect_activations": false,
+    "module_prefixes": [
+      "features"
+    ],
+    "quantize": 0.01,
+    "every": 5
+  }
+}
