@@ -1,7 +1,7 @@
 import os, time, json, sys
 import torch
 import torch.nn.functional as F
-from torch import optim
+from torch import device, optim
 from tqdm import tqdm
 import multiprocessing
 import logging
@@ -118,8 +118,12 @@ def main():
     set_seed(cfg['trainer'].get('seed', 42))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if device.type == "cuda":
+        logger.info(f"Using GPU: {torch.cuda.get_device_name(0)} (total {torch.cuda.device_count()} GPU(s))")
+    else:
+        logger.info("Using CPU")
 
-    # data: num_workers=0 y pin_memory=False para Windows
+
     train_loader, test_loader = build_cifar10(
         cfg['data']['data_dir'],
         batch_size=cfg['data']['batch_size'],
@@ -127,8 +131,11 @@ def main():
         aug=cfg['data'].get('augment', True),
         subset_ratio=cfg['data'].get('subset_ratio', None),
         test_subset_ratio=cfg['data'].get('test_subset_ratio', None),
-        pin_memory=cfg['data'].get('pin_memory', True)
+        pin_memory=cfg['data'].get('pin_memory', True),
+        train_split=cfg['data'].get('train_split', None),
+        seed=cfg['trainer'].get('seed', 42)
     )
+
 
 
     model = build_model(cfg['model']['name'], **cfg['model'].get('kwargs', {})).to(device)

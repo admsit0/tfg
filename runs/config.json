@@ -2,15 +2,15 @@
   "data": {
     "data_dir": "./data",
     "batch_size": 128,
-    "subset_ratio": 0.01,
-    "test_subset_ratio": 0.01,
-    "num_workers": 8,
-    "augment": false
+    "subset_ratio": 0.2,
+    "test_subset_ratio": 0.2,
+    "train_split": 0.8,
+    "augment": true
   },
   "model": {
-    "name": "simple_cnn",
+    "name": "resnet18",
     "kwargs": {
-      "dropout": 0.0
+      "num_classes": 10
     }
   },
   "loss": {
@@ -19,11 +19,16 @@
   },
   "optim": {
     "name": "sgd",
-    "lr": 0.2,
-    "weight_decay": 0.05
+    "lr": 0.1,
+    "weight_decay": 0.0005,
+    "momentum": 0.9,
+    "scheduler": {
+      "name": "cosine",
+      "T_max": 200
+    }
   },
   "trainer": {
-    "max_epochs": 100,
+    "max_epochs": 10,
     "out_dir": "runs",
     "seed": 42
   },
