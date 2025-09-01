@@ -26,7 +26,7 @@ optim:
 
 trainer:
   max_epochs: 10
-  out_dir: runs
+  out_dir: runs/l1_reg
   seed: 42
 
 regularizers: []
