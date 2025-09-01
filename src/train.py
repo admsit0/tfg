@@ -1,11 +1,10 @@
 import os, time, json, sys
 import torch
 import torch.nn.functional as F
-from torch import device, optim
+from torch import optim
 from tqdm import tqdm
 import multiprocessing
 import logging
-import csv
 import numpy as np
 
 # For Windows multiprocessing

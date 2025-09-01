@@ -4,7 +4,7 @@ data:
   subset_ratio: 0.2
   test_subset_ratio: 0.2
   train_split: 0.8   # null for original 50k/10k split
-  augment: true   # include random crop + flip
+  augment: false   # include random crop + flip
 
 model:
   name: resnet18
