@@ -18,6 +18,7 @@ from src.utils.config import load_config, parse_cli, apply_overrides
 from src.utils.seed import set_seed
 from src.utils.loggers import CSVLogger, save_config
 from src.datasets.cifar10 import build_cifar10
+from src.datasets.mnist import build_mnist
 from src.models import build_model
 from src.regularizers import build_regularizers, build_loss
 from src.evaluation.metrics import accuracy
@@ -115,21 +116,33 @@ def main():
         logger.info("Using CPU")
 
 
-    train_loader, test_loader = build_cifar10(
-        cfg['data']['data_dir'],
-        batch_size=cfg['data']['batch_size'],
-        num_workers=cfg['data'].get('num_workers', 0),
-        aug=cfg['data'].get('augment', True),
-        subset_ratio=cfg['data'].get('subset_ratio', None),
-        test_subset_ratio=cfg['data'].get('test_subset_ratio', None),
-        pin_memory=cfg['data'].get('pin_memory', True),
-        train_split=cfg['data'].get('train_split', None),
-        seed=cfg['trainer'].get('seed', 42)
-    )
+    dataset = cfg['data'].get('dataset', 'cifar10').lower()
+    if dataset == 'cifar10':
+        train_loader, test_loader = build_cifar10(
+            cfg['data']['data_dir'],
+            batch_size=cfg['data']['batch_size'],
+            num_workers=cfg['data'].get('num_workers', 0),
+            aug=cfg['data'].get('augment', True),
+            subset_ratio=cfg['data'].get('subset_ratio', None),
+            test_subset_ratio=cfg['data'].get('test_subset_ratio', None),
+            pin_memory=cfg['data'].get('pin_memory', True),
+            train_split=cfg['data'].get('train_split', None),
+            seed=cfg['trainer'].get('seed', 42)
+        )
+    elif dataset == 'mnist':
+        train_loader, test_loader = build_mnist(
+            cfg['data']['data_dir'],
+            batch_size=cfg['data']['batch_size'],
+            train_split=cfg['data'].get('train_split', 0.9),
+            subset_ratio=cfg['data'].get('subset_ratio', None),
+            test_subset_ratio=cfg['data'].get('test_subset_ratio', None)
+        )
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}")
 
 
 
-    model = build_model(cfg['model']['name'], **cfg['model'].get('kwargs', {})).to(device)
+    model = build_model(cfg['model']['name'], dataset=dataset, **cfg['model'].get('kwargs', {})).to(device)
 
     regs = build_regularizers(cfg['regularizers'])
     for r in regs:

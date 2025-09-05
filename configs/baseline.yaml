@@ -1,4 +1,5 @@
 data:
+  dataset: cifar10  # Options: cifar10, mnist
   data_dir: ./data
   batch_size: 128
   subset_ratio: 0.2
@@ -9,7 +10,7 @@ data:
 model:
   name: resnet18
   kwargs:
-    num_classes: 10
+    num_classes: 10  # For MNIST and CIFAR-10
 
 loss:
   name: cross_entropy

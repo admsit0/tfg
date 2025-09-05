@@ -26,12 +26,12 @@ class BasicBlock(nn.Module):
 
 
 class ResNet18CIFAR(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes=10, in_channels=3):
         super().__init__()
         self.in_planes = 64
 
-        # First conv: CIFAR-10 friendly (3x3, stride=1, no maxpool)
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        # First conv: configurable for CIFAR-10 or MNIST
+        self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
 
         self.layer1 = self._make_layer(BasicBlock, 64,  2, stride=1)
