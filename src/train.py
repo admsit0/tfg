@@ -46,7 +46,7 @@ def train_one_epoch(model, loader, optimizer, loss_fn, regs, device, collector=N
     total_loss, total_correct, total_n = 0.0, 0, 0
     epoch_start_time = time.time()
 
-    pbar = tqdm(loader, desc='train', leave=False)
+    pbar = tqdm(loader, desc='train', leave=True)
     for batch_idx, (x, y) in enumerate(pbar):
         # ...existing code...
         batch_start_time = time.time()
@@ -83,7 +83,7 @@ def evaluate(model, loader, loss_fn, device, time_logger=None):
 
     pbar = tqdm(loader, desc='eval', leave=False)
     for batch_idx, (x, y) in enumerate(pbar):
-        # ...existing code...
+
         batch_start_time = time.time()
         logger.info(f"Evaluating batch {batch_idx + 1}/{len(loader)}")
         x, y = x.to(device), y.to(device)

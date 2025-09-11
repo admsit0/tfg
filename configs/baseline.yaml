@@ -34,6 +34,6 @@ regularizers: []
 
 analysis:
   collect_activations: true
-  module_prefixes: ['features']
+  module_prefixes: ['layer1'] # this is the layer we apply regularization + actiavation collection to
   quantize: 0.01
   every: 5
