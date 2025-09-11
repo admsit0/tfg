@@ -1,16 +1,16 @@
 data:
-  dataset: cifar10  # Options: cifar10, mnist
+  dataset: cifar10
   data_dir: ./data
   batch_size: 128
-  subset_ratio: 0.2
-  test_subset_ratio: 0.2
-  train_split: 0.8   # null for original 50k/10k split
-  augment: true   # include random crop + flip
+  subset_ratio: 1
+  test_subset_ratio: 1
+  train_split: 0.8
+  augment: true
 
 model:
   name: resnet18
   kwargs:
-    num_classes: 10  # For MNIST and CIFAR-10
+    num_classes: 10
 
 loss:
   name: cross_entropy
@@ -26,14 +26,14 @@ optim:
     T_max: 200
 
 trainer:
-  max_epochs: 10
+  max_epochs: 50
   out_dir: runs/augmentation
   seed: 42
 
 regularizers: []
 
 analysis:
-  collect_activations: false
+  collect_activations: true
   module_prefixes: ['features']
   quantize: 0.01
   every: 5

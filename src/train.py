@@ -46,7 +46,8 @@ def train_one_epoch(model, loader, optimizer, loss_fn, regs, device, collector=N
     total_loss, total_correct, total_n = 0.0, 0, 0
     epoch_start_time = time.time()
 
-    for batch_idx, (x, y) in enumerate(tqdm(loader, desc='train', leave=False)):
+    pbar = tqdm(loader, desc='train', leave=False)
+    for batch_idx, (x, y) in enumerate(pbar):
         # ...existing code...
         batch_start_time = time.time()
         logger.info(f"Processing batch {batch_idx + 1}/{len(loader)}")
@@ -80,7 +81,8 @@ def evaluate(model, loader, loss_fn, device, time_logger=None):
     total_loss, total_correct, total_n = 0.0, 0, 0
     eval_start_time = time.time()
 
-    for batch_idx, (x, y) in enumerate(tqdm(loader, desc='eval', leave=False)):
+    pbar = tqdm(loader, desc='eval', leave=False)
+    for batch_idx, (x, y) in enumerate(pbar):
         # ...existing code...
         batch_start_time = time.time()
         logger.info(f"Evaluating batch {batch_idx + 1}/{len(loader)}")
@@ -153,13 +155,15 @@ def main():
 
     optimizer = build_optimizer(model, cfg['optim'])
 
-    collector = None
+    activation_storage = None
+    activation_handles = []
     if cfg.get('analysis', {}).get('collect_activations', False):
-        collector = ActivationCollector(
-            model,
-            module_prefixes=tuple(cfg['analysis'].get('module_prefixes',['features'])),
-            quantize=cfg['analysis'].get('quantize', None)
-        )
+        activation_storage = []
+        def activation_hook(module, input, output):
+            activation_storage.append(output.detach().cpu().numpy())
+        for name, module in model.named_modules():
+            if any(name.startswith(prefix) for prefix in cfg['analysis'].get('module_prefixes',['features'])):
+                activation_handles.append(module.register_forward_hook(activation_hook))
 
     # Rename the CSVLogger instance to avoid conflict with the global logger
     csv_logger = CSVLogger(out_dir)
@@ -172,7 +176,14 @@ def main():
     for epoch in range(cfg['trainer']['max_epochs']):
         logger.info(f"Starting epoch {epoch + 1}/{cfg['trainer']['max_epochs']}")
 
-        train_loss, train_acc, train_epoch_time = train_one_epoch(model, train_loader, optimizer, loss_fn, regs, device, collector)
+        # Only collect activations for last epoch
+        if activation_storage is not None:
+            if epoch == cfg['trainer']['max_epochs'] - 1:
+                activation_storage.clear()  # Clear before collecting for last epoch
+            else:
+                activation_storage.clear()  # Clear to avoid collecting in other epochs
+
+        train_loss, train_acc, train_epoch_time = train_one_epoch(model, train_loader, optimizer, loss_fn, regs, device, None)
         val_loss, val_acc, val_epoch_time = evaluate(model, test_loader, loss_fn, device)
 
         logger.info(f"Epoch {epoch + 1} completed in {train_epoch_time:.2f} seconds (train), {val_epoch_time:.2f} seconds (val).")
@@ -182,45 +193,14 @@ def main():
         logger.info("Saving metrics...")
         csv_logger.log(**log_row)
 
-        if collector is not None and (epoch + 1) % cfg['analysis'].get('every', 5) == 0:
-            logger.info("Aggregating activation statistics...")
-            collector_start_time = time.time()
-            stats = collector.aggregate()
-
-            # Analyze activation distributions
-            activation_distributions = {}
-            for key, value in stats.items():
-                if isinstance(value, np.ndarray):
-                    activation_distributions[key] = {
-                        'mean': float(value.mean()),
-                        'std': float(value.std()),
-                        'histogram': np.histogram(value, bins=10)[0].tolist()
-                    }
-                else:
-                    activation_distributions[key] = value
-
-            # Ensure all values in activation_distributions are JSON serializable (recursive handling)
-            def make_serializable(obj):
-                if isinstance(obj, dict):
-                    return {key: make_serializable(value) for key, value in obj.items()}
-                elif isinstance(obj, list):
-                    return [make_serializable(item) for item in obj]
-                elif isinstance(obj, np.ndarray):
-                    return obj.tolist()
-                elif isinstance(obj, (np.float32, np.float64)):
-                    return float(obj)
-                elif isinstance(obj, (np.int32, np.int64)):
-                    return int(obj)
-                return obj
-
-            activation_distributions = make_serializable(activation_distributions)
-
-            # Save activation distributions to JSON
-            with open(os.path.join(out_dir, f'activation_distributions_epoch{epoch + 1}.json'), 'w') as f:
-                json.dump(activation_distributions, f)
-            collector.storage.clear()
-            collector_time = time.time() - collector_start_time
-            logger.info(f"Activation statistics aggregated in {collector_time:.2f} seconds.")
+        if activation_storage is not None and epoch == cfg['trainer']['max_epochs'] - 1:
+            logger.info("Saving all activations for last epoch...")
+            import numpy as np
+            if activation_storage:
+                activations_np = np.concatenate(activation_storage, axis=0)
+                np.save(os.path.join(out_dir, 'activation_distribution_epoch_last.npy'), activations_np)
+            for h in activation_handles:
+                h.remove()
 
         if val_acc > best_acc:
             logger.info("New best accuracy achieved. Saving model...")

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+.\venv\Scripts\activate
+
 echo "Running baseline experiment"
 python src/train.py --config configs/baseline.yaml
 echo "Saved results correctly in output dir"
