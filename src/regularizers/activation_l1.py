@@ -1,3 +1,9 @@
+"""
+Regularizador L1 sobre activaciones:
+Penaliza la magnitud absoluta de las activaciones intermedias de la red (por ejemplo, salidas de capas ocultas).
+Induce sparsity en las representaciones internas, lo que ayuda a controlar la complejidad de las representaciones aprendidas.
+Es útil para interpretabilidad y robustez, ya que permite analizar cómo y dónde la red activa sus neuronas.
+"""
 import torch
 import torch.nn as nn
 from .base import Regularizer

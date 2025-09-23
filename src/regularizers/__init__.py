@@ -1,9 +1,28 @@
+from .gaussian_proximity import GaussianProximityRegularizer
 from .base import Regularizer
 from .activation_l1 import ActivationL1
 from .label_smoothing import LabelSmoothingCrossEntropy
 
+from .l1_reg import L1Regularizer
+from .l2_reg import L2Regularizer
+from .dropout import DropoutRegularizer
+from .early_stopping import EarlyStoppingRegularizer
+from .mixup import MixupRegularizer
+from .cutout import CutoutRegularizer
+from .stochastic_depth import StochasticDepthRegularizer
+from .random_erasing import RandomErasingRegularizer
+
 REGISTRY = {
     'activation_l1': ActivationL1,
+    'l1': L1Regularizer,
+    'l2': L2Regularizer,
+    'dropout': DropoutRegularizer,
+    'early_stopping': EarlyStoppingRegularizer,
+    'mixup': MixupRegularizer,
+    'cutout': CutoutRegularizer,
+    'stochastic_depth': StochasticDepthRegularizer,
+    'random_erasing': RandomErasingRegularizer,
+    'gaussian_proximity': GaussianProximityRegularizer,
 }
 
 LOSS_REGISTRY = {
