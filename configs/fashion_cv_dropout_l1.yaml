@@ -1,0 +1,55 @@
+data:
+  dataset: fashion_mnist
+  data_dir: ./data
+  batch_size: 128
+  subset_ratio: 1
+  test_subset_ratio: 1
+  train_split: 1.0
+  augment: false
+
+model:
+  name: simple_ffw
+  kwargs:
+    input_dim: 784
+    hidden_dim: 256
+    num_classes: 10
+
+loss:
+  name: cross_entropy
+  kwargs: {}
+
+optim:
+  name: sgd
+  lr: 0.1
+  weight_decay: 0.0005
+  momentum: 0.9
+
+trainer:
+  max_epochs: 20
+  out_dir: runs/fashion_cv_dropout_l1
+  seed: 42
+
+cross_validation:
+  enabled: true
+  n_folds: 5
+  seed: 42
+
+# Regularizers: list. For dropout we will set p via the grid; for l1 we set weight via the grid.
+# The cross-validation code will expand any reg with a grid into multiple combinations.
+regularizers:
+  - name: dropout
+    kwargs: {p: 0.0}
+    grid: [0.0, 0.2, 0.5]
+  - name: l1
+    kwargs: {weight: 0.0}
+    grid: [0.0, 1e-6, 1e-5, 1e-4]
+
+analysis:
+  collect_activations: true
+  layers: 'hidden'
+  quantize: null
+  collect_epochs: 'final'
+  activations_filename: activations_collected.csv
+
+visualization:
+  enabled: false

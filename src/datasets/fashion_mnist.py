@@ -1,10 +1,10 @@
 import torch
-from torchvision.datasets import MNIST
+from torchvision.datasets import FashionMNIST
 from torchvision import transforms
 from torch.utils.data import DataLoader, random_split, Subset
 import numpy as np
 
-def build_mnist(
+def build_fashion_mnist(
     data_dir,
     batch_size=128,
     train_split=0.9,
@@ -12,25 +12,21 @@ def build_mnist(
     test_subset_ratio=None
 ):
     """
-    Builds MNIST dataloaders with optional train/test split and subset sampling.
-
-    Args:
-        data_dir (str): Directory to download/store MNIST.
-        batch_size (int): Batch size.
-        train_split (float): Fraction of train set for training (rest for validation).
-        subset_ratio (float, optional): Fraction of train set to use.
-        test_subset_ratio (float, optional): Fraction of test set to use.
-
-    Returns:
-        tuple: (train_loader, test_loader)
+    Builds Fashion-MNIST dataloaders with optional train/test split and subset sampling.
+    Returns train_loader, test_loader
     """
+    mean, std = (0.2860,), (0.3530,)
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
+        transforms.Normalize(mean, std)
     ])
 
-    full_train_dataset = MNIST(root=data_dir, train=True, download=True, transform=transform)
-    official_test_dataset = MNIST(root=data_dir, train=False, download=True, transform=transform)
+    full_train_dataset = FashionMNIST(
+        root=data_dir, train=True, download=True, transform=transform
+    )
+    official_test_dataset = FashionMNIST(
+        root=data_dir, train=False, download=True, transform=transform
+    )
 
     if train_split < 1.0:
         n_train = int(len(full_train_dataset) * train_split)
@@ -51,7 +47,11 @@ def build_mnist(
         indices = np.random.choice(len(test_dataset), n, replace=False)
         test_dataset = Subset(test_dataset, indices)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=2)
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=2
+    )
+    test_loader = DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=2
+    )
 
     return train_loader, test_loader

@@ -1,5 +1,5 @@
 data:
-  dataset: cifar10  # Options: cifar10, mnist
+  dataset: mnist  # Options: cifar10, mnist
   data_dir: ./data
   batch_size: 128
   subset_ratio: 1
@@ -8,7 +8,7 @@ data:
   augment: false
 
 model:
-  name: resnet18
+  name: simple_cnn
   kwargs:
     num_classes: 10  # For MNIST and CIFAR-10
 
@@ -26,7 +26,7 @@ optim:
     T_max: 200
 
 trainer:
-  max_epochs: 50
+  max_epochs: 2
   out_dir: runs/baseline
   seed: 42
 
@@ -34,6 +34,44 @@ regularizers: []
 
 analysis:
   collect_activations: true
-  module_prefixes: ['layer1'] # this is the layer we apply regularization + actiavation collection to
+  # Precision for activation vector comparison (num_states)
+  precision: 1000
+  # Layer to collect activations from
+  layers: 'relu4'  # For SimpleCIFARNet: conv1, relu1, conv2, relu2, pool1, dropout1, conv3, relu3, conv4, relu4, pool2, dropout2, conv5, relu5, avgpool
+
+  # Quantize activations before storing (optional float). If provided, activations
+  # will be rounded to multiples of this step. Use null or omit to disable.
   quantize: 0.01
-  every: 5
+
+  # When to collect activations. Valid forms:
+  # - int (epoch index, 0-based): collect only that epoch
+  # - list of ints: collect multiple specific epochs
+  # - 'initial'|'middle'|'final' (strings): collect first, middle or last epoch
+  # - null/omit: do not collect automatically
+  # Examples:
+  # collect_epochs: 0
+  # collect_epochs: [0,10,49]
+  # collect_epochs: 'initial'
+  # collect_epochs: 'middle'
+  # collect_epochs: 'final'
+  collect_epochs: 'final'
+
+  # Filename for the JSON that will contain flattened activations per-layer per-epoch.
+  # If the file already exists it will be merged (epochs/layers added) rather
+  # than overwritten entirely.
+  activations_filename: activations_collected.json
+
+  # Notes:
+  # - Activations are stored as flattened lists of numbers (floats) under
+  #   export[layer_name]["<epoch_index>"] = {"activations": [ ... ]}
+  # - Layer keys correspond to the exact `named_modules()` names discovered in the model.
+
+visualization:
+  enabled: true
+  host: http://127.0.0.1
+  port: 8765
+  send_batch_metrics: true
+  send_every_n_batches: 10
+  send_activations: true
+  max_activation_thumbnails: 4
+  

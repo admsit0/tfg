@@ -1,20 +1,27 @@
 import torch
 from .base import Regularizer
 
+
 class DropoutRegularizer(Regularizer):
-    def __init__(self, weight: float = 0.5, modules=('features',)):
-        super().__init__(weight)
-        self.modules = modules
-        self.handles = []
+    def __init__(self, p: float = 0.0):
+        super().__init__(p=p)
+        self.p = float(p)
 
-    def setup(self, model):
-        for name, m in model.named_modules():
-            if any(name.startswith(prefix) for prefix in self.modules):
-                self.handles.append(m.register_forward_hook(self._hook))
+    def apply_to_model(self, model: torch.nn.Module):
+        # try common attribute names
+        if hasattr(model, 'dropout'):
+            try:
+                if isinstance(model.dropout, torch.nn.Dropout):
+                    model.dropout.p = self.p
+            except Exception:
+                model.dropout = torch.nn.Dropout(p=self.p)
+        else:
+            # attempt to set on layers named 'dropout' or 'dropout1'
+            for name, mod in model.named_modules():
+                if name.startswith('dropout') and isinstance(mod, torch.nn.Dropout):
+                    mod.p = self.p
+        return model
 
-    def _hook(self, module, inp, out):
-        if self.weight > 0:
-            out = torch.nn.functional.dropout(out, p=self.weight, training=True)
-
-    def compute(self, model, batch, outputs, loss):
-        return torch.tensor(0.0, device=outputs.device)
+    def penalty(self, model: torch.nn.Module):
+        # dropout has no explicit penalty term
+        return torch.tensor(0.0, dtype=torch.float32)

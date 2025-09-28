@@ -1,25 +1,16 @@
 @echo off
 
-echo Running baseline experiment
-python src/train.py --config configs/baseline.yaml
-echo Saved results correctly in output dir
-echo .
-
-echo Running dropout experiment
-python src/train.py --config configs/dropout.yaml
-echo Saved results correctly in output dir
-echo .
-
-@REM echo Running L1 regularization experiment
-@REM python src/train.py --config configs/l1_reg.yaml
+@REM echo Running baseline experiment
+@REM python src/main.py --config configs/baseline.yaml
 @REM echo Saved results correctly in output dir
 @REM echo .
 
-@REM echo Running L2 regularization experiment
-@REM python src/train.py --config configs/l2_reg.yaml
-@REM echo Saved results correctly in output dir
+echo Running cross-validation experiment
+python src/main.py --config configs/fashion_cv_dropout_l1.yaml
+echo Saved cross-validation results correctly in output dir
+echo .
 @REM echo .
 
 @REM echo Running label smoothing experiment
-@REM python src/train.py --config configs/lab_sm.yaml
+@REM python src/main.py --config configs/lab_sm.yaml
 @REM echo Saved results correctly in output dir
