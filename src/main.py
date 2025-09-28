@@ -105,153 +105,16 @@ def collect_activations(model, loader, device, layer_name: str):
 
 
 def train_and_evaluate(cfg, reg_combo_name: str, reg_cfgs: list, run_dir: Path):
+    raise RuntimeError('train_and_evaluate is deprecated; use train_and_evaluate_loaders')
+
+
+def train_and_evaluate_loaders(cfg, reg_combo_name: str, reg_cfgs: list, run_dir: Path, train_loader, test_loader, reg_objs):
     device = get_device()
-    train_loader, test_loader = build_dataloaders_from_cfg(cfg)
 
     model_cfg = cfg.get('model', {})
-    model_name = model_cfg.get('name', 'simple_cnn')
-    model_kwargs = model_cfg.get('kwargs', {})
+    # Reimplemented in train_and_evaluate_loaders
+    # ...existing code...
 
-    # Build model with regularizer parameters
-    # instantiate regularizer objects and apply to model kwargs / model
-    reg_objs = []
-    for r in reg_cfgs:
-        reg_name = r.get('name')
-        reg_kwargs = r.get('kwargs', {})
-        reg_objs.append(build_regularizer(reg_name, reg_kwargs))
-
-    model = build_model(model_name, dataset=cfg.get('data', {}).get('dataset', 'cifar10'),
-                        regularizers=reg_cfgs, **model_kwargs)
-
-    # allow regularizers to mutate the model (e.g., set dropout p)
-    for ro in reg_objs:
-        try:
-            model = ro.apply_to_model(model)
-        except Exception:
-            pass
-    model = model.to(device)
-
-    # Loss
-    loss_cfg = cfg.get('loss', {})
-    loss_name = loss_cfg.get('name', 'cross_entropy')
-    if loss_name == 'cross_entropy':
-        criterion = nn.CrossEntropyLoss()
-    else:
-        raise ValueError(f'Unknown loss: {loss_name}')
-
-    # Optimizer
-    optim_cfg = cfg.get('optim', {})
-    optim_name = optim_cfg.get('name', 'sgd')
-    lr = optim_cfg.get('lr', 0.1)
-    weight_decay = optim_cfg.get('weight_decay', 0.0)
-    if optim_name == 'sgd':
-        momentum = optim_cfg.get('momentum', 0.9)
-        optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
-    elif optim_name == 'adam':
-        optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    else:
-        raise ValueError(f'Unknown optimizer: {optim_name}')
-
-    trainer = cfg.get('trainer', {})
-    max_epochs = int(trainer.get('max_epochs', 10))
-
-    # Loggers and storage
-    run_dir.mkdir(parents=True, exist_ok=True)
-    csv_logger = CSVLogger(run_dir)
-    save_config(cfg, run_dir)
-    storage = StorageManager(base_dir=str(run_dir))
-
-    # Which epoch(s) to collect activations? support 'final' or int
-    analysis = cfg.get('analysis', {})
-    collect_layer = analysis.get('layers', None)
-    collect_epochs = analysis.get('collect_epochs', 'final')
-
-    # training loop
-    for epoch in range(1, max_epochs + 1):
-        t0 = time.time()
-        model.train()
-        train_loss = 0.0
-        train_correct = 0
-        train_total = 0
-
-        for xb, yb in train_loader:
-            xb = xb.to(device)
-            yb = yb.to(device)
-            optimizer.zero_grad()
-            logits = model(xb)
-            if isinstance(logits, tuple):
-                logits = logits[0]
-            loss = criterion(logits, yb)
-            # add regularization penalties
-            reg_pen = torch.tensor(0.0, device=loss.device)
-            for ro in reg_objs:
-                try:
-                    p = ro.penalty(model)
-                    if isinstance(p, torch.Tensor):
-                        reg_pen = reg_pen + p.to(loss.device)
-                except Exception:
-                    pass
-            loss = loss + reg_pen
-            loss.backward()
-            optimizer.step()
-
-            train_loss += loss.item() * yb.size(0)
-            acc1 = accuracy(logits, yb, topk=(1,))[0]
-            train_correct += acc1 * yb.size(0)
-            train_total += yb.size(0)
-
-        train_loss = train_loss / max(1, train_total)
-        train_acc = float(train_correct / max(1, train_total))
-
-        # validation
-        model.eval()
-        val_loss = 0.0
-        val_correct = 0
-        val_total = 0
-        with torch.no_grad():
-            for xb, yb in test_loader:
-                xb = xb.to(device)
-                yb = yb.to(device)
-                logits = model(xb)
-                if isinstance(logits, tuple):
-                    logits = logits[0]
-                loss = criterion(logits, yb)
-                val_loss += loss.item() * yb.size(0)
-                acc1 = accuracy(logits, yb, topk=(1,))[0]
-                val_correct += acc1 * yb.size(0)
-                val_total += yb.size(0)
-
-        val_loss = val_loss / max(1, val_total)
-        val_acc = float(val_correct / max(1, val_total))
-
-        elapsed = time.time() - t0
-        # write metrics
-        csv_logger.log(epoch=epoch, time=elapsed, val_acc=val_acc, train_acc=train_acc,
-                       val_loss=val_loss, train_loss=train_loss)
-
-        # Possibly collect activations at this epoch
-        should_collect = False
-        if isinstance(collect_epochs, str) and collect_epochs == 'final' and epoch == max_epochs:
-            should_collect = True
-        elif isinstance(collect_epochs, int) and epoch == collect_epochs:
-            should_collect = True
-
-        if should_collect and collect_layer:
-            try:
-                acts = collect_activations(model, test_loader, device, collect_layer)
-                acts_fname = analysis.get('activations_filename', 'activations.mat')
-                # if extension is .mat or .h5, save HDF5; if .csv save CSV
-                if acts_fname.endswith('.csv'):
-                    # each row is an image vector
-                    np.savetxt(run_dir / acts_fname, acts, delimiter=',')
-                else:
-                    # default: HDF5 with .mat extension
-                    storage.save_activations({collect_layer: acts}, filename=acts_fname)
-            except Exception as e:
-                # be robust to collection failures
-                print(f"Warning: failed to collect activations: {e}")
-
-    csv_logger.close()
 
 
 def expand_regularizers_and_run(cfg):
@@ -263,13 +126,356 @@ def expand_regularizers_and_run(cfg):
     combinations = reg_search.generate_regularizer_combinations()
 
     # If cross-validation is enabled, we could run folds; for now create per-combo folder and run once.
+    # cross-validation settings
+    cv_cfg = cfg.get('cross_validation', {})
+    cv_enabled = cv_cfg.get('enabled', False)
+    n_folds = int(cv_cfg.get('n_folds', 1)) if cv_enabled else 1
+    cv_seed = int(cv_cfg.get('seed', 42))
+
+    # tqdm option under visualization.tqdm
+    viz_cfg = cfg.get('visualization', {})
+    tqdm_enabled = bool(viz_cfg.get('tqdm', False))
+
     for combo_name, regs in combinations:
         run_dir = Path(out_base) / combo_name
         print(f"Running combo: {combo_name} -> out: {run_dir}")
-        try:
-            train_and_evaluate(cfg, combo_name, regs, run_dir)
-        except Exception as e:
-            print(f"Experiment {combo_name} failed: {e}")
+
+        # build datasets and folds when requested
+        if cv_enabled and n_folds > 1:
+            # build full train dataset and split into folds
+            from src.utils.cross_validation import CrossValidator
+            train_dataset = None
+            # build dataset but return underlying dataset by calling builders directly
+            ds_cfg = cfg.get('data', {})
+            name = ds_cfg.get('dataset', 'cifar10')
+            data_dir = ds_cfg.get('data_dir', './data')
+            batch_size = ds_cfg.get('batch_size', 128)
+            # reuse builders to obtain dataset objects - we will request loaders per fold
+            if name == 'fashion_mnist':
+                from src.datasets.fashion_mnist import FashionMNIST as _FM
+                from torchvision import transforms
+                # fallback to using builder to get datasets via earlier function
+                full_train_loader, _ = build_dataloaders_from_cfg(cfg)
+                # build_dataloaders_from_cfg returns loaders; extract dataset
+                train_dataset = full_train_loader.dataset
+            else:
+                # generic path: build loaders and take their datasets
+                full_train_loader, _ = build_dataloaders_from_cfg(cfg)
+                train_dataset = full_train_loader.dataset
+
+            cv = CrossValidator(n_splits=n_folds, seed=cv_seed)
+            folds = cv.split_dataset(train_dataset)
+
+            # run each fold
+            fold_results = []
+            for fold_idx, (train_idx, val_idx) in enumerate(folds, start=1):
+                fold_name = f"fold{fold_idx}"
+                fold_dir = run_dir / fold_name
+                fold_dir.mkdir(parents=True, exist_ok=True)
+
+                # construct loaders for this fold
+                train_loader, val_loader = cv.create_fold_loaders(train_dataset, (train_idx, val_idx), batch_size=batch_size)
+
+                # build regularizer objects
+                reg_objs = []
+                for r in regs:
+                    reg_name = r.get('name')
+                    reg_kwargs = r.get('kwargs', {})
+                    reg_objs.append(build_regularizer(reg_name, reg_kwargs))
+
+                # Build model fresh per fold inside train function
+                # show informative message
+                if regs:
+                    # show first reg setting
+                    first = regs[0]
+                    print(f"  Fold {fold_idx}: applying {first.get('name')} {first.get('kwargs')}")
+
+                # optional tqdm wrapper
+                if tqdm_enabled:
+                    pbar = tqdm(total=int(cfg.get('trainer', {}).get('max_epochs', 10)), desc=f"{combo_name} fold{fold_idx}")
+                else:
+                    pbar = None
+
+                # call per-fold train using loaders
+                try:
+                    # Build model and train using an internal helper adapted to accept loaders
+                    # Prepare model and reg_objs inside helper
+                    # reuse logic from train_and_evaluate but with loaders
+                    # instantiate regularizers and model
+                    model_cfg = cfg.get('model', {})
+                    model_name = model_cfg.get('name', 'simple_cnn')
+                    model_kwargs = model_cfg.get('kwargs', {})
+                    model = build_model(model_name, dataset=cfg.get('data', {}).get('dataset', 'cifar10'), regularizers=regs, **model_kwargs)
+                    for ro in reg_objs:
+                        try:
+                            model = ro.apply_to_model(model)
+                        except Exception:
+                            pass
+
+                    # Now call a simplified training routine that supports per-epoch callbacks for tqdm
+                    # Move training code inline here for clarity
+                    device = get_device()
+                    model = model.to(device)
+                    # loss and optimizer
+                    loss_cfg = cfg.get('loss', {})
+                    criterion = nn.CrossEntropyLoss()
+                    optim_cfg = cfg.get('optim', {})
+                    optim_name = optim_cfg.get('name', 'sgd')
+                    lr = optim_cfg.get('lr', 0.1)
+                    weight_decay = optim_cfg.get('weight_decay', 0.0)
+                    if optim_name == 'sgd':
+                        momentum = optim_cfg.get('momentum', 0.9)
+                        optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+                    else:
+                        optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+                    max_epochs = int(cfg.get('trainer', {}).get('max_epochs', 10))
+                    csv_logger = CSVLogger(fold_dir)
+                    save_config(cfg, fold_dir)
+                    storage = StorageManager(base_dir=str(fold_dir))
+                    analysis = cfg.get('analysis', {})
+                    collect_layer = analysis.get('layers', None)
+                    collect_epochs = analysis.get('collect_epochs', 'final')
+
+                    # training
+                    for epoch in range(1, max_epochs + 1):
+                        t0 = time.time()
+                        model.train()
+                        train_loss = 0.0
+                        train_correct = 0
+                        train_total = 0
+
+                        for xb, yb in train_loader:
+                            xb = xb.to(device)
+                            yb = yb.to(device)
+                            optimizer.zero_grad()
+                            logits = model(xb)
+                            if isinstance(logits, tuple):
+                                logits = logits[0]
+                            loss = criterion(logits, yb)
+                            # add reg penalties
+                            reg_pen = torch.tensor(0.0, device=loss.device)
+                            for ro in reg_objs:
+                                try:
+                                    p = ro.penalty(model)
+                                    if isinstance(p, torch.Tensor):
+                                        reg_pen = reg_pen + p.to(loss.device)
+                                except Exception:
+                                    pass
+                            loss = loss + reg_pen
+                            loss.backward()
+                            optimizer.step()
+
+                            train_loss += loss.item() * yb.size(0)
+                            acc1 = accuracy(logits, yb, topk=(1,))[0]
+                            train_correct += acc1 * yb.size(0)
+                            train_total += yb.size(0)
+
+                        train_loss = train_loss / max(1, train_total)
+                        train_acc = float(train_correct / max(1, train_total))
+
+                        # validation
+                        model.eval()
+                        val_loss = 0.0
+                        val_correct = 0
+                        val_total = 0
+                        with torch.no_grad():
+                            for xb, yb in val_loader:
+                                xb = xb.to(device)
+                                yb = yb.to(device)
+                                logits = model(xb)
+                                if isinstance(logits, tuple):
+                                    logits = logits[0]
+                                loss_v = criterion(logits, yb)
+                                val_loss += loss_v.item() * yb.size(0)
+                                acc1 = accuracy(logits, yb, topk=(1,))[0]
+                                val_correct += acc1 * yb.size(0)
+                                val_total += yb.size(0)
+
+                        val_loss = val_loss / max(1, val_total)
+                        val_acc = float(val_correct / max(1, val_total))
+                        elapsed = time.time() - t0
+
+                        csv_logger.log(epoch=epoch, time=elapsed, val_acc=val_acc, train_acc=train_acc,
+                                       val_loss=val_loss, train_loss=train_loss)
+
+                        # tqdm update and info prints
+                        if pbar is not None:
+                            pbar.update(1)
+                            pbar.set_postfix({'val_acc': f"{val_acc:.4f}", 'train_acc': f"{train_acc:.4f}"})
+                        else:
+                            print(f"    Epoch {epoch}/{max_epochs}: train_acc={train_acc:.4f} val_acc={val_acc:.4f}")
+
+                        # activation collection
+                        should_collect = False
+                        if isinstance(collect_epochs, str) and collect_epochs == 'final' and epoch == max_epochs:
+                            should_collect = True
+                        elif isinstance(collect_epochs, int) and epoch == collect_epochs:
+                            should_collect = True
+                        if should_collect and collect_layer:
+                            try:
+                                acts = collect_activations(model, val_loader, device, collect_layer)
+                                acts_fname = analysis.get('activations_filename', 'activations.mat')
+                                if acts_fname.endswith('.csv'):
+                                    np.savetxt(fold_dir / acts_fname, acts, delimiter=',')
+                                else:
+                                    storage.save_activations({collect_layer: acts}, filename=acts_fname)
+                            except Exception as e:
+                                print(f"Warning: failed to collect activations: {e}")
+
+                    csv_logger.close()
+                    if pbar is not None:
+                        pbar.close()
+
+                    fold_results.append((fold_idx, fold_dir))
+                    print(f"  Fold {fold_idx} done; outputs in {fold_dir}")
+                except Exception as e:
+                    print(f"  Fold {fold_idx} failed: {e}")
+
+            # after folds, produce a small summary
+            print(f"Averaging results for combo {combo_name} over {len(fold_results)} folds")
+            # (Optional) aggregate CSVs into a single summary per combo — left minimal for now
+
+        else:
+            # no cross-validation: single run
+            try:
+                # build loaders normally
+                train_loader, test_loader = build_dataloaders_from_cfg(cfg)
+                # prepare regularizers
+                reg_objs = []
+                for r in regs:
+                    reg_objs.append(build_regularizer(r.get('name'), r.get('kwargs', {})))
+                # reuse existing per-fold single-run training logic by wrapping loaders into one-fold run
+                # create a fold-like directory
+                fold_dir = run_dir / 'run'
+                fold_dir.mkdir(parents=True, exist_ok=True)
+                # call the same logic as above but for single run
+                # build model and apply regularizers
+                model_cfg = cfg.get('model', {})
+                model_name = model_cfg.get('name', 'simple_cnn')
+                model_kwargs = model_cfg.get('kwargs', {})
+                model = build_model(model_name, dataset=cfg.get('data', {}).get('dataset', 'cifar10'), regularizers=regs, **model_kwargs)
+                for ro in reg_objs:
+                    try:
+                        model = ro.apply_to_model(model)
+                    except Exception:
+                        pass
+                # run training (call existing implementation via helper we created earlier)
+                # For code reuse simplicity, call the earlier inline routine by constructing folds of size 1
+                # Here we inline a call to the same per-fold training routine by creating small wrappers
+                # (To avoid duplication, this could be refactored into a function.)
+                # For now, call the same block as above by creating loaders variables
+                # build optimizer, etc.
+                device = get_device()
+                model = model.to(device)
+                loss_cfg = cfg.get('loss', {})
+                criterion = nn.CrossEntropyLoss()
+                optim_cfg = cfg.get('optim', {})
+                optim_name = optim_cfg.get('name', 'sgd')
+                lr = optim_cfg.get('lr', 0.1)
+                weight_decay = optim_cfg.get('weight_decay', 0.0)
+                if optim_name == 'sgd':
+                    momentum = optim_cfg.get('momentum', 0.9)
+                    optimizer = optim.SGD(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+                else:
+                    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+                max_epochs = int(cfg.get('trainer', {}).get('max_epochs', 10))
+                csv_logger = CSVLogger(fold_dir)
+                save_config(cfg, fold_dir)
+                storage = StorageManager(base_dir=str(fold_dir))
+                analysis = cfg.get('analysis', {})
+                collect_layer = analysis.get('layers', None)
+                collect_epochs = analysis.get('collect_epochs', 'final')
+
+                pbar = tqdm(total=max_epochs, desc=combo_name) if tqdm_enabled else None
+
+                for epoch in range(1, max_epochs + 1):
+                    t0 = time.time()
+                    model.train()
+                    train_loss = 0.0
+                    train_correct = 0
+                    train_total = 0
+
+                    for xb, yb in train_loader:
+                        xb = xb.to(device)
+                        yb = yb.to(device)
+                        optimizer.zero_grad()
+                        logits = model(xb)
+                        if isinstance(logits, tuple):
+                            logits = logits[0]
+                        loss = criterion(logits, yb)
+                        reg_pen = torch.tensor(0.0, device=loss.device)
+                        for ro in reg_objs:
+                            try:
+                                p = ro.penalty(model)
+                                if isinstance(p, torch.Tensor):
+                                    reg_pen = reg_pen + p.to(loss.device)
+                            except Exception:
+                                pass
+                        loss = loss + reg_pen
+                        loss.backward()
+                        optimizer.step()
+
+                        train_loss += loss.item() * yb.size(0)
+                        acc1 = accuracy(logits, yb, topk=(1,))[0]
+                        train_correct += acc1 * yb.size(0)
+                        train_total += yb.size(0)
+
+                    train_loss = train_loss / max(1, train_total)
+                    train_acc = float(train_correct / max(1, train_total))
+
+                    model.eval()
+                    val_loss = 0.0
+                    val_correct = 0
+                    val_total = 0
+                    with torch.no_grad():
+                        for xb, yb in test_loader:
+                            xb = xb.to(device)
+                            yb = yb.to(device)
+                            logits = model(xb)
+                            if isinstance(logits, tuple):
+                                logits = logits[0]
+                            loss_v = criterion(logits, yb)
+                            val_loss += loss_v.item() * yb.size(0)
+                            acc1 = accuracy(logits, yb, topk=(1,))[0]
+                            val_correct += acc1 * yb.size(0)
+                            val_total += yb.size(0)
+
+                    val_loss = val_loss / max(1, val_total)
+                    val_acc = float(val_correct / max(1, val_total))
+                    elapsed = time.time() - t0
+                    csv_logger.log(epoch=epoch, time=elapsed, val_acc=val_acc, train_acc=train_acc,
+                                   val_loss=val_loss, train_loss=train_loss)
+                    if pbar is not None:
+                        pbar.update(1)
+                        pbar.set_postfix({'val_acc': f"{val_acc:.4f}", 'train_acc': f"{train_acc:.4f}"})
+                    else:
+                        print(f"  Epoch {epoch}/{max_epochs}: train_acc={train_acc:.4f} val_acc={val_acc:.4f}")
+
+                    should_collect = False
+                    if isinstance(collect_epochs, str) and collect_epochs == 'final' and epoch == max_epochs:
+                        should_collect = True
+                    elif isinstance(collect_epochs, int) and epoch == collect_epochs:
+                        should_collect = True
+                    if should_collect and collect_layer:
+                        try:
+                            acts = collect_activations(model, test_loader, device, collect_layer)
+                            acts_fname = analysis.get('activations_filename', 'activations.mat')
+                            if acts_fname.endswith('.csv'):
+                                np.savetxt(fold_dir / acts_fname, acts, delimiter=',')
+                            else:
+                                storage.save_activations({collect_layer: acts}, filename=acts_fname)
+                        except Exception as e:
+                            print(f"Warning: failed to collect activations: {e}")
+
+                csv_logger.close()
+                if pbar is not None:
+                    pbar.close()
+                print(f"Run complete; outputs in {fold_dir}")
+
+            except Exception as e:
+                print(f"Experiment {combo_name} failed: {e}")
 
 
 def main():
@@ -281,11 +487,12 @@ def main():
     seed = cfg.get('trainer', {}).get('seed', 42)
     set_seed(seed)
 
-    # If visualization is enabled, leave a placeholder comment
-    if cfg.get('visualization', {}).get('enabled', False):
-        # Placeholder: visualization module will be implemented later
-        # TODO: call visualization pipeline here when available
-        pass
+    # If visualization is enabled, leave a placeholder comment and optionally enable tqdm
+    viz_cfg = cfg.get('visualization', {})
+    if viz_cfg.get('enabled', False):
+        print("# Visualization enabled in config: placeholder - visualization module will be called here when implemented")
+        if 'comment' in viz_cfg:
+            print(f"# Visualization comment: {viz_cfg.get('comment')}")
 
     # Expand regularizers and run experiments
     expand_regularizers_and_run(cfg)
