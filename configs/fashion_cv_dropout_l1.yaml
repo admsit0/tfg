@@ -39,7 +39,7 @@ cross_validation:
 regularizers:
   - name: dropout
     kwargs: {p: 0.0}
-    grid: [0.0, 0.2, 0.5]
+    grid: [0.2, 0.5]
   - name: l1
     kwargs: {weight: 0.0}
     grid: [0.0, 1e-6, 1e-5, 1e-4]
@@ -53,3 +53,4 @@ analysis:
 
 visualization:
   enabled: false
+  tqdm: true

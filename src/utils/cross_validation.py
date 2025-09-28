@@ -63,8 +63,8 @@ class RegularizerGridSearch:
             reg_kwargs = reg_config.get('kwargs', {})
             custom_grid = reg_config.get('grid', None)
             
-            # Get parameter grid
-            from src.regularization import get_regularizer_grid
+            # Get parameter grid from the regularizers package
+            from src.regularizers import get_regularizer_grid
             param_grid = get_regularizer_grid(reg_name, custom_grid)
             
             if not param_grid:
