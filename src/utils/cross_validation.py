@@ -11,40 +11,62 @@ from src.utils.seed import set_seed
 logger = logging.getLogger(__name__)
 
 class CrossValidator:
-    """Handles K-fold cross-validation for model evaluation."""
-    
+    """Handles K-fold cross-validation for model evaluation.
+
+    Ensures deterministic splits when a seed is provided.
+    """
+
     def __init__(self, n_splits: int = 5, seed: int = 42, shuffle: bool = True):
         self.n_splits = n_splits
-        self.seed = seed
+        self.seed = int(seed) if seed is not None else None
         self.shuffle = shuffle
-        self.kfold = KFold(n_splits=n_splits, shuffle=shuffle, random_state=seed)
+        self.kfold = KFold(n_splits=n_splits, shuffle=shuffle, random_state=self.seed)
     
     def split_dataset(self, dataset):
-        """Split dataset into k folds."""
+        """Split dataset into k folds.
+
+        Returns a list of (train_indices, val_indices) using deterministic KFold.
+        """
         indices = list(range(len(dataset)))
         folds = []
-        
+
         for train_idx, val_idx in self.kfold.split(indices):
             train_indices = [indices[i] for i in train_idx]
             val_indices = [indices[i] for i in val_idx]
             folds.append((train_indices, val_indices))
-            
+
         return folds
     
-    def create_fold_loaders(self, dataset, fold_indices, batch_size=128):
-        """Create data loaders for a specific fold."""
+    def create_fold_loaders(self, dataset, fold_indices, batch_size=128, base_seed: int = None):
+        """Create data loaders for a specific fold.
+
+        base_seed is used to seed the DataLoader worker RNGs to ensure deterministic
+        ordering across runs. We derive a worker_init_fn that sets numpy/random/torch seeds
+        deterministically per worker.
+        """
         train_indices, val_indices = fold_indices
-        
+
         train_subset = torch.utils.data.Subset(dataset, train_indices)
         val_subset = torch.utils.data.Subset(dataset, val_indices)
-        
+
+        def worker_init_fn(worker_id):
+            # seed derived from base_seed and worker id for determinism
+            seed = (int(base_seed or 0) + worker_id) % (2 ** 31 - 1)
+            import random as _random, numpy as _np, torch as _torch
+            _random.seed(seed)
+            _np.random.seed(seed)
+            try:
+                _torch.manual_seed(seed)
+            except Exception:
+                pass
+
         train_loader = torch.utils.data.DataLoader(
-            train_subset, batch_size=batch_size, shuffle=True
+            train_subset, batch_size=batch_size, shuffle=True, worker_init_fn=worker_init_fn
         )
         val_loader = torch.utils.data.DataLoader(
-            val_subset, batch_size=batch_size, shuffle=False
+            val_subset, batch_size=batch_size, shuffle=False, worker_init_fn=worker_init_fn
         )
-        
+
         return train_loader, val_loader
 
 class RegularizerGridSearch:

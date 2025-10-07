@@ -43,8 +43,9 @@ def build_dataloaders_from_cfg(cfg):
     # import dataset builders lazily to avoid heavy imports if not used
     if name == 'fashion_mnist':
         from src.datasets.fashion_mnist import build_fashion_mnist
+        seed = cfg.get('trainer', {}).get('seed', 42)
         return build_fashion_mnist(data_dir, batch_size=batch_size, train_split=train_split,
-                                    subset_ratio=subset_ratio, test_subset_ratio=test_subset_ratio)
+                                    subset_ratio=subset_ratio, test_subset_ratio=test_subset_ratio, seed=seed)
     elif name == 'mnist':
         from src.datasets.mnist import build_mnist
         return build_mnist(data_dir, batch_size=batch_size, train_split=train_split,
@@ -65,43 +66,62 @@ def collect_activations(model, loader, device, layer_name: str):
     """
     model.eval()
     acts_list = []
+    true_labels = []
+    pred_labels = []
     with torch.no_grad():
-        for xb, _ in loader:
+        for xb, yb in loader:
             xb = xb.to(device)
+            yb = yb.to(device)
             out = model(xb, collect_layer=layer_name)
             # model may return (logits, activations) or (None, activations)
             if isinstance(out, tuple) and len(out) == 2:
-                _, acts = out
+                logits, acts = out
             else:
-                acts = out
+                # out may be dict of activations or logits
+                if isinstance(out, dict):
+                    logits = None
+                    acts = out
+                else:
+                    logits = out
+                    acts = None
 
+            # determine features
             if not acts:
-                # nothing collected; try model.get_hidden or return empty
                 if hasattr(model, 'get_hidden'):
                     feat = model.get_hidden(xb)
                     arr = feat.detach().cpu().numpy()
                 else:
                     arr = np.zeros((xb.size(0), 0), dtype=np.float32)
             else:
-                # pick the first available key
                 if isinstance(acts, dict):
-                    # choose requested layer if present
                     if layer_name in acts:
                         tensor = acts[layer_name]
                     else:
-                        # fallback to first item
                         tensor = list(acts.values())[0]
                 else:
                     tensor = acts
                 tensor = tensor.detach().cpu()
-                # flatten per-sample
                 arr = tensor.view(tensor.size(0), -1).numpy()
 
+            # predictions and labels
+            if logits is not None:
+                if isinstance(logits, tuple):
+                    logits = logits[0]
+                preds = torch.argmax(logits, dim=1).detach().cpu().numpy()
+            else:
+                # no logits returned; mark preds as -1
+                preds = -1 * np.ones((arr.shape[0],), dtype=np.int64)
+
             acts_list.append(arr)
+            true_labels.append(yb.detach().cpu().numpy())
+            pred_labels.append(preds)
 
     if len(acts_list) == 0:
-        return np.zeros((0, 0), dtype=np.float32)
-    return np.concatenate(acts_list, axis=0)
+        return np.zeros((0, 0), dtype=np.float32), np.zeros((0,), dtype=np.int64), np.zeros((0,), dtype=np.int64)
+    feats = np.concatenate(acts_list, axis=0)
+    trues = np.concatenate(true_labels, axis=0)
+    preds = np.concatenate(pred_labels, axis=0)
+    return feats, trues, preds
 
 
 def train_and_evaluate(cfg, reg_combo_name: str, reg_cfgs: list, run_dir: Path):
@@ -151,17 +171,8 @@ def expand_regularizers_and_run(cfg):
             data_dir = ds_cfg.get('data_dir', './data')
             batch_size = ds_cfg.get('batch_size', 128)
             # reuse builders to obtain dataset objects - we will request loaders per fold
-            if name == 'fashion_mnist':
-                from src.datasets.fashion_mnist import FashionMNIST as _FM
-                from torchvision import transforms
-                # fallback to using builder to get datasets via earlier function
-                full_train_loader, _ = build_dataloaders_from_cfg(cfg)
-                # build_dataloaders_from_cfg returns loaders; extract dataset
-                train_dataset = full_train_loader.dataset
-            else:
-                # generic path: build loaders and take their datasets
-                full_train_loader, _ = build_dataloaders_from_cfg(cfg)
-                train_dataset = full_train_loader.dataset
+            full_train_loader, _ = build_dataloaders_from_cfg(cfg)
+            train_dataset = full_train_loader.dataset
 
             cv = CrossValidator(n_splits=n_folds, seed=cv_seed)
             folds = cv.split_dataset(train_dataset)
@@ -174,7 +185,16 @@ def expand_regularizers_and_run(cfg):
                 fold_dir.mkdir(parents=True, exist_ok=True)
 
                 # construct loaders for this fold
-                train_loader, val_loader = cv.create_fold_loaders(train_dataset, (train_idx, val_idx), batch_size=batch_size)
+                # derive per-fold base seed to ensure reproducible DataLoader order across folds
+                fold_base_seed = int(cv_seed) + int(fold_idx)
+                train_loader, val_loader = cv.create_fold_loaders(train_dataset, (train_idx, val_idx), batch_size=batch_size, base_seed=fold_base_seed)
+
+                # reseed per-fold/model to ensure deterministic initialization independent of loop ordering
+                import hashlib
+                base_seed = int(cfg.get('trainer', {}).get('seed', 42))
+                combo_hash = int(hashlib.md5(combo_name.encode()).hexdigest(), 16) % (2 ** 31 - 1)
+                per_model_seed = (base_seed + combo_hash + fold_idx) % (2 ** 31 - 1)
+                set_seed(per_model_seed)
 
                 # build regularizer objects
                 reg_objs = []
@@ -314,14 +334,63 @@ def expand_regularizers_and_run(cfg):
                             should_collect = True
                         if should_collect and collect_layer:
                             try:
-                                acts = collect_activations(model, val_loader, device, collect_layer)
-                                acts_fname = analysis.get('activations_filename', 'activations.mat')
-                                if acts_fname.endswith('.csv'):
-                                    np.savetxt(fold_dir / acts_fname, acts, delimiter=',')
-                                else:
-                                    storage.save_activations({collect_layer: acts}, filename=acts_fname)
+                                # For this trained model (fold_idx), collect activations for ALL folds' validation sets
+                                acts_fname = analysis.get('activations_filename', 'activations_collected.csv')
+                                save_per_epoch = bool(analysis.get('save_per_epoch', False))
+                                suffix = Path(acts_fname).suffix or '.csv'
+                                stem = Path(acts_fname).stem
+
+                                # iterate all folds and save each fold's validation activations into this fold_dir
+                                save_training = bool(analysis.get('save_training_activations', False))
+                                for j, (t_idxs, v_idxs) in enumerate(folds, start=1):
+                                    # build a deterministic DataLoader for this fold's validation subset
+                                    # Only save activations for other folds if configured
+                                    if j != fold_idx and not save_training:
+                                        continue
+                                    val_subset = torch.utils.data.Subset(train_dataset, v_idxs)
+                                    def worker_init_fn_generic(worker_id, base= (int(cv_seed) + int(j)) % (2 ** 31 - 1)):
+                                        seed = (int(base) + worker_id) % (2 ** 31 - 1)
+                                        import random as _random, numpy as _np, torch as _torch
+                                        _random.seed(seed)
+                                        _np.random.seed(seed)
+                                        try:
+                                            _torch.manual_seed(seed)
+                                        except Exception:
+                                            pass
+
+                                    val_loader_all = torch.utils.data.DataLoader(
+                                        val_subset, batch_size=batch_size, shuffle=False, worker_init_fn=worker_init_fn_generic
+                                    )
+
+                                    feats, trues, preds = collect_activations(model, val_loader_all, device, collect_layer)
+                                    if feats.size == 0:
+                                        combined = np.zeros((0, 0))
+                                    else:
+                                        combined = np.concatenate([feats, preds.reshape(-1, 1), trues.reshape(-1, 1)], axis=1)
+
+                                    if save_per_epoch:
+                                        out_name = f"{stem}_epoch{epoch}_fold{j}{suffix}"
+                                    else:
+                                        out_name = f"{stem}_fold{j}{suffix}"
+
+                                    out_path = fold_dir / out_name
+                                    # write header with activation columns + pred_label and true_label
+                                    if combined.size == 0:
+                                        # still write header
+                                        header = 'pred_label,true_label'
+                                        # create empty file with header only
+                                        with open(out_path, 'w', newline='') as fh:
+                                            fh.write(header + '\n')
+                                    else:
+                                        ncols = combined.shape[1]
+                                        # last two are pred and true
+                                        act_cols = [f"act_{i}" for i in range(ncols - 2)]
+                                        header = ','.join(act_cols + ['pred_label', 'true_label'])
+                                        # use fmt to avoid scientific notation issues if desired
+                                        np.savetxt(out_path, combined, delimiter=',', header=header, comments='')
+
                             except Exception as e:
-                                print(f"Warning: failed to collect activations: {e}")
+                                print(f"Warning: failed to collect activations across folds: {e}")
 
                     csv_logger.close()
                     if pbar is not None:
@@ -458,16 +527,37 @@ def expand_regularizers_and_run(cfg):
                         should_collect = True
                     elif isinstance(collect_epochs, int) and epoch == collect_epochs:
                         should_collect = True
-                    if should_collect and collect_layer:
-                        try:
-                            acts = collect_activations(model, test_loader, device, collect_layer)
-                            acts_fname = analysis.get('activations_filename', 'activations.mat')
-                            if acts_fname.endswith('.csv'):
-                                np.savetxt(fold_dir / acts_fname, acts, delimiter=',')
-                            else:
-                                storage.save_activations({collect_layer: acts}, filename=acts_fname)
-                        except Exception as e:
-                            print(f"Warning: failed to collect activations: {e}")
+                        if should_collect and collect_layer:
+                            try:
+                                feats, trues, preds = collect_activations(model, test_loader, device, collect_layer)
+                                if feats.size == 0:
+                                    combined = np.zeros((0, 0))
+                                else:
+                                    combined = np.concatenate([feats, preds.reshape(-1, 1), trues.reshape(-1, 1)], axis=1)
+
+                                acts_fname = analysis.get('activations_filename', 'activations_collected.csv')
+                                save_per_epoch = bool(analysis.get('save_per_epoch', False))
+                                suffix = Path(acts_fname).suffix or '.csv'
+                                stem = Path(acts_fname).stem
+                                if save_per_epoch:
+                                    out_name = f"{stem}_epoch{epoch}_run{suffix}"
+                                else:
+                                    out_name = acts_fname
+
+                                out_path = fold_dir / out_name
+                                if combined.size == 0:
+                                    header = 'pred_label,true_label'
+                                    with open(out_path, 'w', newline='') as fh:
+                                        fh.write(header + '\n')
+                                else:
+                                    ncols = combined.shape[1]
+                                    act_cols = [f"act_{i}" for i in range(ncols - 2)]
+                                    header = ','.join(act_cols + ['pred_label', 'true_label'])
+                                    np.savetxt(out_path, combined, delimiter=',', header=header, comments='')
+                            except Exception as e:
+                                print(f"Warning: failed to collect activations: {e}")
+
+                        # user requested not to save per-fold model checkpoints by default
 
                 csv_logger.close()
                 if pbar is not None:

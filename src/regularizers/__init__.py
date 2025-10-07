@@ -1,10 +1,12 @@
 from .base import Regularizer
 from .dropout import DropoutRegularizer
 from .l1 import L1Regularizer
+from .l2 import L2Regularizer
 
 REGISTRY = {
     'dropout': DropoutRegularizer,
     'l1': L1Regularizer,
+    'l2': L2Regularizer,
 }
 
 
