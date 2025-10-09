@@ -4,13 +4,13 @@ data:
   batch_size: 128
   subset_ratio: 1
   test_subset_ratio: 1
-  train_split: 0.7
+  train_split: 1
   augment: false
 
 model:
   name: simple_ffw
   kwargs:
-    input_dim: 784
+    input_dim: 784 # 28*28
     hidden_dim: 64
     num_classes: 10
 
@@ -25,8 +25,8 @@ optim:
   momentum: 0.9
 
 trainer:
-  max_epochs: 30
-  out_dir: runs/fashion_cv_dropout_l1_l2
+  max_epochs: 20
+  out_dir: runs/fashion_cv_l1_dropoutLows_l2
   seed: 42
 
 cross_validation:
@@ -38,9 +38,14 @@ regularizers:
   - name: dropout
     kwargs: {p: 0.0}
     grid: [0.0, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+
+  - name: l1
+    kwargs: {weight: 0.0}
+    grid: [0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0]
+
   - name: l2
     kwargs: {weight: 0.0}
-    grid: [0.0, 1e-6, 1e-5, 1e-4]
+    grid: [0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1.0]
 
 analysis:
   collect_activations: true
