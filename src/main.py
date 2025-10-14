@@ -23,6 +23,7 @@ from src.models import build_model
 from src.utils.cross_validation import RegularizerGridSearch, CrossValidator
 from src.regularizers import build_regularizer
 from src.evaluation.metrics import accuracy
+from src.visualization.placeholder import run_visualization
 
 
 def get_device():
@@ -577,12 +578,13 @@ def main():
     seed = cfg.get('trainer', {}).get('seed', 42)
     set_seed(seed)
 
-    # If visualization is enabled, leave a placeholder comment and optionally enable tqdm
+    # If visualization is enabled, call visualization runner
     viz_cfg = cfg.get('visualization', {})
     if viz_cfg.get('enabled', False):
-        print("# Visualization enabled in config: placeholder - visualization module will be called here when implemented")
-        if 'comment' in viz_cfg:
-            print(f"# Visualization comment: {viz_cfg.get('comment')}")
+        try:
+            run_visualization(cfg)
+        except Exception as e:
+            print(f"Visualization runner failed: {e}")
 
     # Expand regularizers and run experiments
     expand_regularizers_and_run(cfg)
