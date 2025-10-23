@@ -23,7 +23,7 @@ from src.models import build_model
 from src.utils.cross_validation import RegularizerGridSearch, CrossValidator
 from src.regularizers import build_regularizer
 from src.evaluation.metrics import accuracy
-from src.visualization.placeholder import run_visualization
+from src.visualization.visualization import run_visualization
 
 
 def get_device():
