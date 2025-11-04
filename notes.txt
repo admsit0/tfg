@@ -1,0 +1,6 @@
+ahora sacamos activaciones y las redondeamos
+
+su propuesta es estandarizar las activaciones y luego redondearlas
+
+estandarizar por columnas la matriz de activaciones (images*neurons), es decir, por neuronas
+
