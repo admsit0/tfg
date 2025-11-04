@@ -25,23 +25,19 @@ optim:
   momentum: 0.9
 
 trainer:
-  max_epochs: 20
-  out_dir: runs/fashion_cv_l1_dropoutLows_l2
+  max_epochs: 10
+  out_dir: runs/debug_run
   seed: 42
 
 cross_validation:
   enabled: true
-  n_folds: 2
+  n_folds: 1
   seed: 42
 
 regularizers:
   - name: l1
     kwargs: {weight: 0.0}
-    grid: [1e-3, 1e-2, 1e-1, 1.0]
-
-  - name: l2
-    kwargs: {weight: 0.0}
-    grid: [1e-3, 1e-2, 1e-1, 1.0]
+    grid: [1e-1, 1.0]
 
 analysis:
   collect_activations: true

@@ -17,3 +17,5 @@ class L2Regularizer(Regularizer):
         for p in model.parameters():
             total = total + (p ** 2).sum()
         return self.weight * total
+
+
