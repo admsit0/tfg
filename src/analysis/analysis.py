@@ -36,7 +36,7 @@ def as_numpy(X: Any) -> np.ndarray:
     return X
 
 
-def count_unique_states_rounding(X: Any, decimals: int = 5, normalize_l2: bool = True) -> Tuple[int, np.ndarray]:
+def count_unique_states_rounding(X: Any, decimals: int = 5) -> Tuple[int, np.ndarray]:
     """Count unique rows in X by rounding features to `decimals` and using np.unique.
 
     This is fast and deterministic. It assumes numerical stability within the
@@ -47,12 +47,6 @@ def count_unique_states_rounding(X: Any, decimals: int = 5, normalize_l2: bool =
     with one representative per unique rounded row.
     """
     Xn = as_numpy(X).astype(float)
-    if normalize_l2:
-        norms = np.linalg.norm(Xn, axis=1, keepdims=True)
-        # avoid division by zero
-        norms[norms == 0] = 1.0
-        Xn = Xn / norms
-
     Xr = np.round(Xn, decimals=decimals)
     # np.unique rows: use view trick for speed
     try:

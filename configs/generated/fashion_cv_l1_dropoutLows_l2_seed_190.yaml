@@ -1,0 +1,85 @@
+data:
+  dataset: fashion_mnist
+  data_dir: ./data
+  batch_size: 128
+  subset_ratio: 1
+  test_subset_ratio: 1
+  train_split: 1
+  augment: false
+model:
+  name: simple_ffw
+  kwargs:
+    input_dim: 784
+    hidden_dim: 64
+    num_classes: 10
+loss:
+  name: cross_entropy
+  kwargs: {}
+optim:
+  name: sgd
+  lr: 0.1
+  weight_decay: 0.0005
+  momentum: 0.9
+trainer:
+  max_epochs: 20
+  out_dir: runs\fashion_cv_l1_dropoutLows_l2\seed_17\seed_42\seed_50\seed_190
+  seed: 190
+cross_validation:
+  enabled: true
+  n_folds: 5
+  seed: 190
+regularizers:
+- name: dropout
+  kwargs:
+    p: 0.0
+  grid:
+  - 0.05
+  - 0.1
+  - 0.12
+  - 0.15
+  - 0.17
+  - 0.2
+  - 0.23
+  - 0.25
+  - 0.3
+  - 0.35
+  - 0.4
+  - 0.5
+- name: l1
+  kwargs:
+    weight: 0.0
+  grid:
+  - 5e-7
+  - 1e-6
+  - 5e-5
+  - 1e-5
+  - 5e-4
+  - 1e-4
+  - 1e-3
+  - 1e-2
+  - 1e-1
+  - 1.0
+- name: l2
+  kwargs:
+    weight: 0.0
+  grid:
+  - 5e-7
+  - 1e-6
+  - 5e-5
+  - 1e-5
+  - 5e-4
+  - 1e-4
+  - 1e-3
+  - 1e-2
+  - 1e-1
+  - 1.0
+analysis:
+  collect_activations: true
+  layers: hidden
+  collect_epochs: final
+  activations_filename: activations_collected.csv
+  save_per_epoch: true
+  save_training_activations: true
+visualization:
+  enabled: false
+  tqdm: true

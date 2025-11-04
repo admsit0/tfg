@@ -6,7 +6,7 @@
 @REM echo .
 
 echo Running cross-validation experiment
-python src/main.py --config configs/fashion_cv_l1_dropoutLows_l2.yaml
+python src/main.py --config configs/debug.yaml
 echo Saved cross-validation results correctly in output dir
 echo .
 @REM echo .
