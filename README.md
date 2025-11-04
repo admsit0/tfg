@@ -1,5 +1,4 @@
 # TFG - A Study on Regularization Techniques Applied to Neural Networks
-# TFG - Experiments on Regularization Techniques for Neural Networks
 
 Author: Adam Maltoni (supervised by Dr. Luis Fernando Lago Fernández)
 
