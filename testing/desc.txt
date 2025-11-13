@@ -1,0 +1,190 @@
+Aquí tienes el *resumen completo y estructurado del TFG* basado únicamente en la información discutida hasta ahora en este chat.
+Está organizado para servir directamente como *contexto exportable* a otro asistente o sistema que deba continuar el trabajo.
+
+---
+
+## 🧩 *Resumen integral del TFG: Geometría de activaciones, regularización y explicabilidad*
+
+### *1. Propósito del trabajo*
+
+El Trabajo de Fin de Grado (TFG) busca entender *cómo la regularización afecta la geometría interna de las activaciones en redes neuronales* y cómo esta relación influye en la capacidad del modelo para generalizar y evitar el sobreajuste (overfitting).
+
+Los *objetivos principales* son:
+
+* Analizar la *estructura geométrica* del espacio de activaciones (representaciones internas) generado por la red.
+* Evaluar la influencia de distintos tipos y grados de regularización (L1, L2, Dropout) sobre esa geometría.
+* Cuantificar la *complejidad interna del modelo* a través del número de “estados ocultos únicos” (unique hidden states).
+* Explorar si existe un equilibrio (sweet spot) entre el número de estados y la capacidad de generalización, de forma que el modelo no memorice ni colapse su representación.
+
+Los *objetivos secundarios* incluyen:
+
+* Relacionar las métricas geométricas con el rendimiento (accuracy, pérdida) durante el entrenamiento.
+* Sentar bases para la *explicabilidad* de los errores mediante análisis del espacio de activaciones y su relación con las etiquetas verdaderas y predichas.
+
+---
+
+### *2. Estado actual del proyecto*
+
+El proyecto se encuentra en una fase avanzada de experimentación y análisis inicial de resultados.
+Se ha completado una *serie de entrenamientos exhaustiva* con múltiples configuraciones de regularización:
+
+* Métodos de regularización probados:
+
+  * *Baseline (sin regularización)*
+  * *Dropout*, con probabilidades p ∈ {0.0, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5}
+  * *L1 regularization*, con pesos λ ∈ {0.0, 1.0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6}
+  * *L2 regularization*, con pesos λ ∈ {0.0, 1.0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6}
+
+Cada experimento se ha ejecutado con *5 folds* de validación cruzada.
+
+Por cada fold se guardan:
+
+* Métricas de entrenamiento (metrics.csv) con columnas:
+
+  * epoch, time, train_acc, train_loss, val_acc, val_loss
+* Activaciones (activations_collected.csv):
+
+  * Dimensiones: num_images × num_neurons (8000 × 64)
+  * Cada fila corresponde a una imagen y cada columna a la activación de una neurona.
+  * En algunos casos se planea incluir también pred_label y true_label.
+
+#### *Resultados actuales*
+
+* Se ha calculado el número medio y desviación estándar de *estados únicos* (num_states_mean, num_states_std) y su relación con la *precisión de validación* (val_acc_mean, val_acc_std).
+* Resultados globales:
+
+  * Regularizaciones leves (Dropout ≈ 0.1–0.25, L1 ≈ 1e-5–1e-4, L2 ≈ 1e-5–1e-3) mantienen buena precisión (≈0.84–0.86) con una complejidad razonable.
+  * Regularizaciones extremas (L1=1.0, L1=1e-1, L2=1.0) producen *colapso de activaciones* o saturación: pérdida de precisión (<0.33) y número de estados anómalo (p.ej. L1=1e-1 con ≈12 000 estados, std=0).
+  * El baseline (sin regularización) tiene ≈11 500 estados y precisión ≈0.85, pero muestra *muchas neuronas inactivas*.
+* Se ha detectado que algunos casos con p=0.0 o λ=0.0 no coinciden exactamente con el baseline, lo que sugiere pequeñas inconsistencias en las semillas o folds.
+
+---
+
+### *3. Sistema y herramientas*
+
+* *Lenguaje de programación:* Python
+* *Librerías:*
+
+  * PyTorch (entrenamiento y definición del modelo)
+  * Pandas (manejo de CSVs)
+  * NumPy (operaciones vectoriales y análisis numérico)
+  * Matplotlib (visualización)
+  * Scikit-learn (cálculo de distancias, clustering)
+* *Entorno:* entorno local de ejecución controlado, con experimento completo ejecutado en ≈5 horas.
+* *Dataset:* conjunto similar a Fashion-MNIST con 8000 imágenes de entrenamiento y 64 neuronas ocultas.
+* *Estructura de archivos:*
+
+  
+  runs/
+    fashion_cv_dropout_l1/
+      dropout_p_0.1/
+        fold1/
+          metrics.csv
+          activations_collected.csv
+        ...
+      l1_weight_1e-4/
+        fold1/
+        ...
+      baseline/
+  
+* *Criterio de igualdad entre activaciones:*
+  Dos vectores se consideran “iguales” si su distancia euclídea < ε (definido empíricamente).
+  Se utilizan histogramas de distancias para elegir ε apropiado.
+
+---
+
+### *4. Problemas actuales*
+
+1. *Regularización extrema (L1=1.0 y L1=1e-1):*
+
+   * Genera activaciones colapsadas o saturadas (posiblemente todos los pesos ≈0).
+   * Precisión muy baja y nula desviación estándar en num_states → posible degeneración numérica.
+
+2. *Inconsistencias entre baseline y reg=0.0:*
+
+   * Métricas ligeramente distintas sugieren que las *semillas aleatorias* o la *asignación de folds* no son completamente reproducibles.
+
+3. **Falta de etiquetas guardadas (pred_label, true_label):**
+
+   * Limita la posibilidad de hacer análisis de explicabilidad o de pureza de clusters.
+
+4. *Selección del umbral ε:*
+
+   * La métrica de estados únicos depende fuertemente del umbral de cercanía.
+   * Aún no se ha implementado un método automático para elegirlo basado en la distribución de distancias.
+
+5. *Representación inactiva:*
+
+   * En el baseline, varias neuronas no se activan (activación = 0), lo que puede indicar saturación o arquitectura sobredimensionada.
+
+---
+
+### *5. Contexto relevante adicional*
+
+* El *análisis de activaciones* busca capturar la “geometría interna” del conocimiento del modelo.
+* Se observa que la regularización:
+
+  * *Reduce el número de estados* cuando es moderada (mejor generalización).
+  * *Destruye la representación* cuando es excesiva (colapso).
+* Se sospecha que el número de estados debería ser del orden de (num_points / num_classes) para lograr equilibrio entre variabilidad y generalización.
+* Se ha definido la métrica clave:
+
+  * num_states = número de clusters en el espacio de activaciones según umbral ε.
+* Se ha planeado relacionar esta métrica con:
+
+  * Precisión de entrenamiento y validación.
+  * Tipo e intensidad de regularización.
+  * Tiempo de convergencia.
+* Gráficas principales propuestas:
+
+  * num_hidden_states (X) vs accuracy (Y)
+    (líneas separadas para entrenamiento y validación)
+  * Curvas por tipo de regularizador y parámetro.
+
+---
+
+### *6. Lo que falta o está pendiente*
+
+1. *Guardado de etiquetas:*
+
+   * Implementar guardado de pred_label y true_label junto a las activaciones o en archivo separado.
+   * Permitir análisis de:
+
+     * Pureza de clusters (coherencia por clase)
+     * Entropía de activaciones por clase
+     * Análisis de confusiones geométricas
+
+2. *Nuevas métricas geométricas:*
+
+   * Entropía de activaciones por clase.
+   * Distancias intra/inter clase.
+   * Medidas de separabilidad.
+   * Correlación entre pureza y rendimiento.
+
+3. *Tratamiento de folds:*
+
+   * Definir si se promedian resultados o se analizan por separado.
+   * Implementar agregación controlada para métricas globales.
+
+4. *Documentación:*
+
+   * Crear README.md avanzado con descripción de la arquitectura, parámetros de configuración (config.yaml), estructura de archivos y flujo de trabajo completo.
+
+5. *Análisis avanzado:*
+
+   * Revisión de los casos anómalos (L1 y L2 extremos).
+   * Análisis visual del espacio de activaciones (p. ej. clustering DBSCAN o histogramas de distancias).
+   * Estudio de correlaciones entre métricas geométricas y rendimiento.
+
+6. *Optimización del pipeline:*
+
+   * Automatizar el proceso de carga, cálculo y visualización de métricas en un notebook único.
+
+---
+
+### *7. Síntesis final*
+
+El TFG está orientado a *cuantificar y explicar cómo las técnicas de regularización modifican la estructura interna del conocimiento de una red neuronal*, utilizando la geometría de las activaciones como ventana explicativa.
+El trabajo cuenta ya con un conjunto sólido de experimentos y resultados cuantitativos, pero requiere consolidar la parte de *explicabilidad* y *análisis cualitativo* de los estados internos para cerrar el ciclo de interpretación.
+
+---
