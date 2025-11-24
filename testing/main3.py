@@ -12,11 +12,11 @@ from scipy.signal import savgol_filter
 import os
 
 # --- CONFIGURACIÓN ---
-SAVE_MODELS = True
+SAVE_MODELS = False
 SAVE_PLOTS = True
-SEEDS = [0, 42, 67]
+SEEDS = [0, 42]
 BINS = 30 
-EPOCHS = 10
+EPOCHS = 20 # Aumentamos un poco épocas para dar tiempo a la red profunda
 BATCH_SIZE = 64
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -37,9 +37,9 @@ full_train_dataset = TensorDataset(tensor_x_train, tensor_y_train)
 test_dataset = TensorDataset(tensor_x_test, tensor_y_test)
 test_dataloader = DataLoader(test_dataset, batch_size=1000)
 
-# --- MODELO (MODIFICADO: hidden_size variable) ---
+# --- MODELO ORIGINAL ---
 class Net(nn.Module):
-    def __init__(self, dropout_p=0.0, hidden_size=64):
+    def __init__(self, dropout_p=0.0, hidden_size=64, **kwargs):
         super(Net, self).__init__()
         self.fc1 = nn.Linear(28*28, hidden_size)
         self.dropout = nn.Dropout(dropout_p)
@@ -57,7 +57,42 @@ class Net(nn.Module):
         x = self.fc2(x)
         return x
 
-# --- ENTRENAMIENTO ---
+# --- NUEVO MODELO MULTICAPA (EXPERIMENTO 4) ---
+class MultiLayerNet(nn.Module):
+    def __init__(self, dropout_p=0.0, hidden_size=64, num_layers=4, **kwargs):
+        super(MultiLayerNet, self).__init__()
+        self.layers = nn.ModuleList()
+        self.dropout = nn.Dropout(dropout_p)
+        
+        # Capa de entrada
+        self.layers.append(nn.Linear(28*28, hidden_size))
+        
+        # Capas ocultas intermedias (total num_layers ocultas)
+        # Ya añadimos 1, faltan num_layers - 1
+        for _ in range(num_layers - 1):
+            self.layers.append(nn.Linear(hidden_size, hidden_size))
+            
+        # Capa de salida (Clasificador)
+        self.out_layer = nn.Linear(hidden_size, 10)
+
+    def hidden_layer(self, x):
+        """Devuelve las activaciones de la ÚLTIMA capa oculta (post-ReLU)"""
+        x = x.view(-1, 28*28)
+        # Pasar por todas las capas ocultas acumulando ReLU
+        for layer in self.layers:
+            x = F.relu(layer(x))
+        return x
+
+    def forward(self, x):
+        # Obtener activaciones finales
+        x = self.hidden_layer(x)
+        # Aplicar Dropout solo al final (consistente con Net original)
+        x = self.dropout(x)
+        # Capa de salida
+        x = self.out_layer(x)
+        return x
+
+# --- ENTRENAMIENTO (GENERALIZADO) ---
 def train_network(net, reg_type, reg_val, train_loader, nepochs=EPOCHS, lr=0.01):
     optimizer = optim.SGD(net.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
@@ -71,12 +106,16 @@ def train_network(net, reg_type, reg_val, train_loader, nepochs=EPOCHS, lr=0.01)
             outputs = net(x)
             loss = criterion(outputs, t)
 
-            if reg_type == 'L1':
-                l1_term = torch.norm(net.fc1.weight, p=1) + torch.norm(net.fc2.weight, p=1)
-                loss += reg_val * l1_term
-            elif reg_type == 'L2':
-                l2_term = torch.norm(net.fc1.weight, p=2) + torch.norm(net.fc2.weight, p=2)
-                loss += reg_val * l2_term
+            # Regularización generalizada para cualquier arquitectura (Net o MultiLayerNet)
+            if reg_type in ['L1', 'L2']:
+                reg_loss = 0
+                for module in net.modules():
+                    if isinstance(module, nn.Linear):
+                        if reg_type == 'L1':
+                            reg_loss += torch.norm(module.weight, p=1)
+                        elif reg_type == 'L2':
+                            reg_loss += torch.norm(module.weight, p=2)
+                loss += reg_val * reg_loss
             
             loss.backward()
             optimizer.step()
@@ -98,37 +137,23 @@ def evaluate_accuracy(net, dataloader):
 # --- FUNCIONES DE ANÁLISIS DE ESTADOS ---
 
 def compute_simple_bin_edges(activations, num_bins=BINS):
-    """
-    Calcula bordes de histograma TAL Y COMO EN EL NOTEBOOK.
-    Sin robustez (sin percentiles), usando el rango absoluto.
-    """
     vals = activations.flatten()
-    
-    # Histograma estándar de numpy
     _, bin_edges = np.histogram(vals, bins=num_bins)
-    
-    # Ajuste manual del último bin para incluir el máximo (lógica del notebook)
     bin_edges = bin_edges.astype(float)
     bin_edges[-1] = bin_edges[-1] + 0.01 * (bin_edges[-1] - bin_edges[-2])
-    
-    print(f"  -> Bin Edges (Simple/Notebook): Min={bin_edges[0]:.3f}, Max={bin_edges[-1]:.3f}")
+    print(f"  -> Bin Edges (Simple): Min={bin_edges[0]:.3f}, Max={bin_edges[-1]:.3f}")
     return bin_edges
 
 def get_num_internal_states_new(net, bin_edges, input_data):
-    """
-    Cuenta estados únicos dada una rejilla de bins fija.
-    """
     net.eval()
     input_data = input_data.to(DEVICE)
     with torch.no_grad():
         activations = net.hidden_layer(input_data).cpu().numpy()
 
-    # Discretización
     b = np.zeros_like(activations)
     for i in range(activations.shape[1]):
         b[:, i] = np.digitize(activations[:, i], bin_edges)
 
-    # Conteo únicos absolutos
     num_states = np.unique(b, axis=0).shape[0]
     return num_states
 
@@ -294,8 +319,8 @@ def plot_amplitude_grid_unified(nets_dict, param_lists, input_tensor, dataset_na
         fig_m.savefig(f'results/amp_mean_{dataset_name}_{title_suffix}.png')
     plt.show()
 
-# --- EJECUCIÓN (MODIFICADO: Soporte para hidden_size) ---
-def run_experiment(train_dataset_exp, title_suffix="FullData", hidden_size=64):
+# --- EJECUCIÓN CON CLASE DE RED CONFIGURABLE ---
+def run_experiment(train_dataset_exp, title_suffix="FullData", net_class=Net, **model_kwargs):
     actual_train_tensor = train_dataset_exp.tensors[0]
     
     train_eval_loader = DataLoader(train_dataset_exp, batch_size=1000, shuffle=False)
@@ -316,7 +341,7 @@ def run_experiment(train_dataset_exp, title_suffix="FullData", hidden_size=64):
         for v in param_lists[m]:
             nets_storage[m][v] = {}
 
-    print(f"Training Baseline (Hidden={hidden_size}) & Computing SIMPLE Bin Edges...")
+    print(f"Training Baseline (Model={net_class.__name__}, Args={model_kwargs}) & Computing Bins...")
     bin_edges = None
     
     n_train_samples = len(actual_train_tensor)
@@ -324,8 +349,8 @@ def run_experiment(train_dataset_exp, title_suffix="FullData", hidden_size=64):
     
     for seed in SEEDS:
         torch.manual_seed(seed)
-        # Instanciar red con hidden_size variable
-        net = Net(dropout_p=0.0, hidden_size=hidden_size)
+        # Instanciar usando la clase y argumentos pasados
+        net = net_class(dropout_p=0.0, **model_kwargs)
         net = train_network(net, 'Baseline', 0.0, train_loader)
         
         if bin_edges is None:
@@ -357,10 +382,10 @@ def run_experiment(train_dataset_exp, title_suffix="FullData", hidden_size=64):
                 torch.manual_seed(seed)
                 
                 if method == 'Dropout':
-                    net = Net(dropout_p=val, hidden_size=hidden_size)
+                    net = net_class(dropout_p=val, **model_kwargs)
                     r_type, r_val = 'Dropout', 0.0
                 else:
-                    net = Net(dropout_p=0.0, hidden_size=hidden_size)
+                    net = net_class(dropout_p=0.0, **model_kwargs)
                     r_type, r_val = method, val
                 
                 net = train_network(net, r_type, r_val, train_loader)
@@ -393,13 +418,13 @@ def run_experiment(train_dataset_exp, title_suffix="FullData", hidden_size=64):
 
 # --- RUN ---
 print(">>> RUN 1: Full Dataset (60k, 64 neurons)")
-df_full = run_experiment(full_train_dataset, "FullData", hidden_size=64)
+df_full = run_experiment(full_train_dataset, "FullData", net_class=Net, hidden_size=64)
 
 print("\n>>> RUN 2: Reduced Dataset (1k, 64 neurons - Overfitting)")
 indices = torch.randperm(len(tensor_x_train))[:1000]
 reduced_train_dataset = TensorDataset(tensor_x_train[indices], tensor_y_train[indices])
-df_reduced = run_experiment(reduced_train_dataset, "Reduced_Overfit", hidden_size=64)
+df_reduced = run_experiment(reduced_train_dataset, "Reduced_Overfit", net_class=Net, hidden_size=64)
 
-print("\n>>> RUN 3: Reduced Dataset (1k, 128 neurons - Extreme Overfitting)")
-# Reutilizamos el dataset reducido para comparar el efecto de doblar neuronas
-df_doubled = run_experiment(reduced_train_dataset, "Doubled_Neurons_Overfit", hidden_size=128)
+print("\n>>> RUN 3: Reduced Dataset (1k, 128 neurons, 4 layers - Extreme Overfitting)")
+# Usamos el mismo dataset reducido pero con la red profunda y más ancha
+df_deep = run_experiment(full_train_dataset, "DeepNet_Overfit", net_class=MultiLayerNet, hidden_size=128, num_layers=4)
