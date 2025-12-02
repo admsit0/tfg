@@ -12,11 +12,11 @@ from scipy.signal import savgol_filter
 import os
 
 # --- CONFIGURACIÓN ---
-SAVE_MODELS = False
+SAVE_MODELS = True
 SAVE_PLOTS = True
-SEEDS = [0, 42]
+SEEDS = [0, 42, 67]
 BINS = 30 
-EPOCHS = 20 # Aumentamos un poco épocas para dar tiempo a la red profunda
+EPOCHS = 15 # Un valor intermedio razonable
 BATCH_SIZE = 64
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -37,7 +37,7 @@ full_train_dataset = TensorDataset(tensor_x_train, tensor_y_train)
 test_dataset = TensorDataset(tensor_x_test, tensor_y_test)
 test_dataloader = DataLoader(test_dataset, batch_size=1000)
 
-# --- MODELO ORIGINAL ---
+# --- MODELO ORIGINAL (MLP) ---
 class Net(nn.Module):
     def __init__(self, dropout_p=0.0, hidden_size=64, **kwargs):
         super(Net, self).__init__()
@@ -57,42 +57,77 @@ class Net(nn.Module):
         x = self.fc2(x)
         return x
 
-# --- NUEVO MODELO MULTICAPA (EXPERIMENTO 4) ---
+# --- MODELO MULTICAPA (Deep MLP) ---
 class MultiLayerNet(nn.Module):
     def __init__(self, dropout_p=0.0, hidden_size=64, num_layers=4, **kwargs):
         super(MultiLayerNet, self).__init__()
         self.layers = nn.ModuleList()
         self.dropout = nn.Dropout(dropout_p)
         
-        # Capa de entrada
         self.layers.append(nn.Linear(28*28, hidden_size))
-        
-        # Capas ocultas intermedias (total num_layers ocultas)
-        # Ya añadimos 1, faltan num_layers - 1
         for _ in range(num_layers - 1):
             self.layers.append(nn.Linear(hidden_size, hidden_size))
             
-        # Capa de salida (Clasificador)
         self.out_layer = nn.Linear(hidden_size, 10)
 
     def hidden_layer(self, x):
-        """Devuelve las activaciones de la ÚLTIMA capa oculta (post-ReLU)"""
         x = x.view(-1, 28*28)
-        # Pasar por todas las capas ocultas acumulando ReLU
         for layer in self.layers:
             x = F.relu(layer(x))
         return x
 
     def forward(self, x):
-        # Obtener activaciones finales
         x = self.hidden_layer(x)
-        # Aplicar Dropout solo al final (consistente con Net original)
         x = self.dropout(x)
-        # Capa de salida
         x = self.out_layer(x)
         return x
 
-# --- ENTRENAMIENTO (GENERALIZADO) ---
+# --- NUEVO MODELO CONVOLUCIONAL (ConvNet) ---
+class ConvNet(nn.Module):
+    def __init__(self, dropout_p=0.0, hidden_size=64, **kwargs):
+        super(ConvNet, self).__init__()
+        # Entrada: 1 canal (gris), 28x28
+        
+        # Conv 1: 32 filtros
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        # Conv 2: 64 filtros
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        
+        self.pool = nn.MaxPool2d(2, 2)
+        
+        # Cálculo de tamaño aplanado:
+        # 28x28 -> Conv1 -> 28x28 -> Pool -> 14x14
+        # 14x14 -> Conv2 -> 14x14 -> Pool -> 7x7
+        # Salida: 64 canales * 7 * 7
+        self.flatten_size = 64 * 7 * 7
+        
+        # Capa densa "plana" oculta (la que mediremos)
+        self.fc1 = nn.Linear(self.flatten_size, hidden_size)
+        
+        self.dropout = nn.Dropout(dropout_p)
+        self.fc2 = nn.Linear(hidden_size, 10) # Salida (Softmax implícita en Loss)
+
+    def hidden_layer(self, x):
+        """
+        Devuelve las activaciones de la última capa oculta densa (fc1) antes de la salida.
+        """
+        # Asegurar forma (Batch, 1, 28, 28)
+        x = x.view(-1, 1, 28, 28)
+        
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        
+        x = x.view(-1, self.flatten_size) # Flatten
+        x = F.relu(self.fc1(x))           # Activaciones FC1
+        return x
+
+    def forward(self, x):
+        x = self.hidden_layer(x) # Obtener FC1 activada
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
+
+# --- ENTRENAMIENTO (ACTUALIZADO: Soporte para Conv2d) ---
 def train_network(net, reg_type, reg_val, train_loader, nepochs=EPOCHS, lr=0.01):
     optimizer = optim.SGD(net.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
@@ -106,11 +141,12 @@ def train_network(net, reg_type, reg_val, train_loader, nepochs=EPOCHS, lr=0.01)
             outputs = net(x)
             loss = criterion(outputs, t)
 
-            # Regularización generalizada para cualquier arquitectura (Net o MultiLayerNet)
+            # Regularización (ahora incluye Conv2d)
             if reg_type in ['L1', 'L2']:
                 reg_loss = 0
                 for module in net.modules():
-                    if isinstance(module, nn.Linear):
+                    # Aplicamos reg a Linear y Conv2d
+                    if isinstance(module, (nn.Linear, nn.Conv2d)):
                         if reg_type == 'L1':
                             reg_loss += torch.norm(module.weight, p=1)
                         elif reg_type == 'L2':
@@ -134,14 +170,14 @@ def evaluate_accuracy(net, dataloader):
             correct += (predicted == t).sum().item()
     return correct / total
 
-# --- FUNCIONES DE ANÁLISIS DE ESTADOS ---
+# --- ANÁLISIS DE ESTADOS ---
 
 def compute_simple_bin_edges(activations, num_bins=BINS):
     vals = activations.flatten()
     _, bin_edges = np.histogram(vals, bins=num_bins)
     bin_edges = bin_edges.astype(float)
     bin_edges[-1] = bin_edges[-1] + 0.01 * (bin_edges[-1] - bin_edges[-2])
-    print(f"  -> Bin Edges (Simple): Min={bin_edges[0]:.3f}, Max={bin_edges[-1]:.3f}")
+    print(f"  -> Bin Edges: Min={bin_edges[0]:.3f}, Max={bin_edges[-1]:.3f}")
     return bin_edges
 
 def get_num_internal_states_new(net, bin_edges, input_data):
@@ -319,7 +355,7 @@ def plot_amplitude_grid_unified(nets_dict, param_lists, input_tensor, dataset_na
         fig_m.savefig(f'results/amp_mean_{dataset_name}_{title_suffix}.png')
     plt.show()
 
-# --- EJECUCIÓN CON CLASE DE RED CONFIGURABLE ---
+# --- EJECUCIÓN PRINCIPAL ---
 def run_experiment(train_dataset_exp, title_suffix="FullData", net_class=Net, **model_kwargs):
     actual_train_tensor = train_dataset_exp.tensors[0]
     
@@ -341,7 +377,7 @@ def run_experiment(train_dataset_exp, title_suffix="FullData", net_class=Net, **
         for v in param_lists[m]:
             nets_storage[m][v] = {}
 
-    print(f"Training Baseline (Model={net_class.__name__}, Args={model_kwargs}) & Computing Bins...")
+    print(f"Training Baseline ({net_class.__name__}) & Computing Bins...")
     bin_edges = None
     
     n_train_samples = len(actual_train_tensor)
@@ -349,7 +385,6 @@ def run_experiment(train_dataset_exp, title_suffix="FullData", net_class=Net, **
     
     for seed in SEEDS:
         torch.manual_seed(seed)
-        # Instanciar usando la clase y argumentos pasados
         net = net_class(dropout_p=0.0, **model_kwargs)
         net = train_network(net, 'Baseline', 0.0, train_loader)
         
@@ -425,6 +460,9 @@ indices = torch.randperm(len(tensor_x_train))[:1000]
 reduced_train_dataset = TensorDataset(tensor_x_train[indices], tensor_y_train[indices])
 df_reduced = run_experiment(reduced_train_dataset, "Reduced_Overfit", net_class=Net, hidden_size=64)
 
-print("\n>>> RUN 3: Reduced Dataset (1k, 128 neurons, 4 layers - Extreme Overfitting)")
-# Usamos el mismo dataset reducido pero con la red profunda y más ancha
-df_deep = run_experiment(full_train_dataset, "DeepNet_Overfit", net_class=MultiLayerNet, hidden_size=128, num_layers=4)
+print("\n>>> RUN 3: Reduced Dataset (1k, 128 neurons, 4 layers)")
+df_deep = run_experiment(reduced_train_dataset, "DeepNet_Overfit", net_class=MultiLayerNet, hidden_size=128, num_layers=4)
+
+print("\n>>> RUN 4: Reduced Dataset (1k, ConvNet)")
+# Experimento 4 con ConvNet sobre dataset reducido
+df_conv = run_experiment(reduced_train_dataset, "ConvNet_Overfit", net_class=ConvNet, hidden_size=128)
