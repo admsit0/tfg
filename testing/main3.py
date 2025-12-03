@@ -463,6 +463,8 @@ df_reduced = run_experiment(reduced_train_dataset, "Reduced_Overfit", net_class=
 print("\n>>> RUN 3: Reduced Dataset (1k, 128 neurons, 4 layers)")
 df_deep = run_experiment(reduced_train_dataset, "DeepNet_Overfit", net_class=MultiLayerNet, hidden_size=128, num_layers=4)
 
-print("\n>>> RUN 4: Reduced Dataset (1k, ConvNet)")
+print("\n>>> RUN 4: Reduced Dataset (10k, ConvNet)")
 # Experimento 4 con ConvNet sobre dataset reducido
+indices = torch.randperm(len(tensor_x_train))[:10000]
+reduced_train_dataset = TensorDataset(tensor_x_train[indices], tensor_y_train[indices])
 df_conv = run_experiment(reduced_train_dataset, "ConvNet_Overfit", net_class=ConvNet, hidden_size=128)
