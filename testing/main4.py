@@ -14,44 +14,56 @@ import os
 # --- CONFIGURACIÓN ---
 SAVE_MODELS = True
 SAVE_PLOTS = True
-SEEDS = [42]
+SEEDS = [42] # Reducido a 1 seed para probar rápido, añade más si quieres robustez
 BINS = 30 
-EPOCHS = 50
+EPOCHS = 50 # Epochs suficientes para forzar overfitting
 BATCH_SIZE = 64
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 if SAVE_MODELS or SAVE_PLOTS:
     os.makedirs("results", exist_ok=True)
 
-# --- DATOS ---
-(train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.fashion_mnist.load_data()
+# --- DATOS: CIFAR-10 ---
+print("Cargando CIFAR-10...")
+(train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.cifar10.load_data()
+
+# Normalización [0, 1]
 train_images = train_images / 255.0
 test_images = test_images / 255.0
 
-tensor_x_train = torch.tensor(train_images, dtype=torch.float)
-tensor_y_train = torch.tensor(train_labels, dtype=torch.long)
-tensor_x_test = torch.tensor(test_images, dtype=torch.float)
-tensor_y_test = torch.tensor(test_labels, dtype=torch.long)
+# Conversión a Tensores y Permutación de Canales
+# Keras: (N, 32, 32, 3) -> PyTorch: (N, 3, 32, 32)
+tensor_x_train = torch.tensor(train_images, dtype=torch.float).permute(0, 3, 1, 2)
+tensor_y_train = torch.tensor(train_labels, dtype=torch.long).squeeze() # (N, 1) -> (N)
+
+tensor_x_test = torch.tensor(test_images, dtype=torch.float).permute(0, 3, 1, 2)
+tensor_y_test = torch.tensor(test_labels, dtype=torch.long).squeeze()   # (N, 1) -> (N)
 
 full_train_dataset = TensorDataset(tensor_x_train, tensor_y_train)
 test_dataset = TensorDataset(tensor_x_test, tensor_y_test)
 test_dataloader = DataLoader(test_dataset, batch_size=1000)
 
+# Constantes de dimensiones para CIFAR-10
+INPUT_CHANNELS = 3
+IMG_SIZE = 32
+FLATTEN_DIM = INPUT_CHANNELS * IMG_SIZE * IMG_SIZE # 3 * 32 * 32 = 3072
+
 # --- MODELO ORIGINAL (MLP) ---
 class Net(nn.Module):
     def __init__(self, dropout_p=0.0, hidden_size=64, **kwargs):
         super(Net, self).__init__()
-        self.fc1 = nn.Linear(28*28, hidden_size)
+        # Entrada ajustada para CIFAR-10 (3072 features)
+        self.fc1 = nn.Linear(FLATTEN_DIM, hidden_size)
         self.dropout = nn.Dropout(dropout_p)
         self.fc2 = nn.Linear(hidden_size, 10)
 
     def hidden_layer(self, x):
-        x = x.view(-1, 28*28)
+        x = x.view(-1, FLATTEN_DIM)
         x = F.relu(self.fc1(x))
         return x
 
     def forward(self, x):
-        x = x.view(-1, 28*28)
+        x = x.view(-1, FLATTEN_DIM)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
         x = self.fc2(x)
@@ -64,14 +76,15 @@ class MultiLayerNet(nn.Module):
         self.layers = nn.ModuleList()
         self.dropout = nn.Dropout(dropout_p)
         
-        self.layers.append(nn.Linear(28*28, hidden_size))
+        # Entrada ajustada para CIFAR-10
+        self.layers.append(nn.Linear(FLATTEN_DIM, hidden_size))
         for _ in range(num_layers - 1):
             self.layers.append(nn.Linear(hidden_size, hidden_size))
             
         self.out_layer = nn.Linear(hidden_size, 10)
 
     def hidden_layer(self, x):
-        x = x.view(-1, 28*28)
+        x = x.view(-1, FLATTEN_DIM)
         for layer in self.layers:
             x = F.relu(layer(x))
         return x
@@ -82,54 +95,52 @@ class MultiLayerNet(nn.Module):
         x = self.out_layer(x)
         return x
 
-# --- NUEVO MODELO CONVOLUCIONAL (ConvNet) ---
+# --- NUEVO MODELO CONVOLUCIONAL (ConvNet adaptada a CIFAR) ---
 class ConvNet(nn.Module):
     def __init__(self, dropout_p=0.0, hidden_size=64, **kwargs):
         super(ConvNet, self).__init__()
-        # Entrada: 1 canal (gris), 28x28
+        # Entrada: 3 canales (RGB), 32x32
         
-        # Conv 1: 32 filtros
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
-        # Conv 2: 64 filtros
+        # Conv 1: 3 -> 32 filtros
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
+        # Conv 2: 32 -> 64 filtros
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         
         self.pool = nn.MaxPool2d(2, 2)
         
-        # Cálculo de tamaño aplanado:
-        # 28x28 -> Conv1 -> 28x28 -> Pool -> 14x14
-        # 14x14 -> Conv2 -> 14x14 -> Pool -> 7x7
-        # Salida: 64 canales * 7 * 7
-        self.flatten_size = 64 * 7 * 7
+        # Cálculo de tamaño aplanado para CIFAR-10 (32x32):
+        # 32x32 -> Conv1 -> 32x32 -> Pool -> 16x16
+        # 16x16 -> Conv2 -> 16x16 -> Pool -> 8x8
+        # Salida: 64 canales * 8 * 8
+        self.flatten_size = 64 * 8 * 8
         
-        # Capa densa "plana" oculta (la que mediremos)
+        # Capa densa "plana" oculta
         self.fc1 = nn.Linear(self.flatten_size, hidden_size)
         
         self.dropout = nn.Dropout(dropout_p)
-        self.fc2 = nn.Linear(hidden_size, 10) # Salida (Softmax implícita en Loss)
+        self.fc2 = nn.Linear(hidden_size, 10)
 
     def hidden_layer(self, x):
-        """
-        Devuelve las activaciones de la última capa oculta densa (fc1) antes de la salida.
-        """
-        # Asegurar forma (Batch, 1, 28, 28)
-        x = x.view(-1, 1, 28, 28)
+        # Asegurar forma (Batch, 3, 32, 32)
+        x = x.view(-1, 3, 32, 32)
         
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         
-        x = x.view(-1, self.flatten_size) # Flatten
-        x = F.relu(self.fc1(x))           # Activaciones FC1
+        x = x.view(-1, self.flatten_size)
+        x = F.relu(self.fc1(x))
         return x
 
     def forward(self, x):
-        x = self.hidden_layer(x) # Obtener FC1 activada
+        x = self.hidden_layer(x)
         x = self.dropout(x)
         x = self.fc2(x)
         return x
 
-# --- ENTRENAMIENTO (ACTUALIZADO: Soporte para Conv2d) ---
+# --- ENTRENAMIENTO ---
 def train_network(net, reg_type, reg_val, train_loader, nepochs=EPOCHS, lr=0.01):
-    optimizer = optim.SGD(net.parameters(), lr=lr)
+    # Usamos Momentum para ayudar a converger mejor en CIFAR
+    optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
     criterion = nn.CrossEntropyLoss()
     net.to(DEVICE)
     net.train()
@@ -141,11 +152,9 @@ def train_network(net, reg_type, reg_val, train_loader, nepochs=EPOCHS, lr=0.01)
             outputs = net(x)
             loss = criterion(outputs, t)
 
-            # Regularización (ahora incluye Conv2d)
             if reg_type in ['L1', 'L2']:
                 reg_loss = 0
                 for module in net.modules():
-                    # Aplicamos reg a Linear y Conv2d
                     if isinstance(module, (nn.Linear, nn.Conv2d)):
                         if reg_type == 'L1':
                             reg_loss += torch.norm(module.weight, p=1)
@@ -171,13 +180,12 @@ def evaluate_accuracy(net, dataloader):
     return correct / total
 
 # --- ANÁLISIS DE ESTADOS ---
-
 def compute_simple_bin_edges(activations, num_bins=BINS):
     vals = activations.flatten()
     _, bin_edges = np.histogram(vals, bins=num_bins)
     bin_edges = bin_edges.astype(float)
     bin_edges[-1] = bin_edges[-1] + 0.01 * (bin_edges[-1] - bin_edges[-2])
-    print(f"  -> Bin Edges: Min={bin_edges[0]:.3f}, Max={bin_edges[-1]:.3f}")
+    print(f"  -> Bin Edges (Simple): Min={bin_edges[0]:.3f}, Max={bin_edges[-1]:.3f}")
     return bin_edges
 
 def get_num_internal_states_new(net, bin_edges, input_data):
@@ -205,7 +213,6 @@ def plot_sweep_results(df, title_suffix=''):
     
     methods = ['L1', 'L2', 'Dropout']
     
-    # FIG 1: Internal States %
     fig1, axes1 = plt.subplots(1, 3, figsize=(18, 5))
     for i, method in enumerate(methods):
         sub_df = df[df['reg_type'] == method]
@@ -228,21 +235,15 @@ def plot_sweep_results(df, title_suffix=''):
         ax.axhline(y=base_states_train, color='blue', linestyle=':', alpha=0.5, label='Base Train %')
         ax.axhline(y=base_states_val, color='orange', linestyle=':', alpha=0.5, label='Base Val %')
         
-        ax.set_title(f'Internal States (%) vs {method}')
+        ax.set_title(f'States (%) vs {method}')
         if method in ['L1', 'L2']:
             ax.set_xscale('log')
-            ax.set_xlabel(f'{method} $\lambda$ (log)')
-        else:
-            ax.set_xlabel(f'{method} Probability')
-        
-        ax.set_ylabel('Unique States / Total Samples (%)')
         ax.set_ylim(-5, 105)
         ax.legend()
         
-    fig1.suptitle(f'Internal States Usage (%) - {title_suffix}', fontsize=16)
+    fig1.suptitle(f'CIFAR-10: States Usage (%) - {title_suffix}', fontsize=16)
     if SAVE_PLOTS: fig1.savefig(f'results/states_pct_sweep_{title_suffix}.png')
     
-    # FIG 2: Accuracy
     fig2, axes2 = plt.subplots(1, 3, figsize=(18, 5), sharey=True)
     for i, method in enumerate(methods):
         sub_df = df[df['reg_type'] == method]
@@ -267,14 +268,13 @@ def plot_sweep_results(df, title_suffix=''):
         ax.set_title(f'Accuracy vs {method}')
         if method in ['L1', 'L2']:
             ax.set_xscale('log')
-        ax.set_xlabel(f'{method} Param')
-        ax.set_ylabel('Accuracy')
         ax.legend()
-    fig2.suptitle(f'Accuracy (Train vs Val) - {title_suffix}', fontsize=16)
+    fig2.suptitle(f'CIFAR-10: Accuracy - {title_suffix}', fontsize=16)
     if SAVE_PLOTS: fig2.savefig(f'results/accuracy_sweep_{title_suffix}.png')
     plt.show()
 
-def plot_amplitude_grid_unified(nets_dict, param_lists, input_tensor, dataset_name, title_suffix='', seed_to_plot=0):
+def plot_amplitude_grid_unified(nets_dict, param_lists, input_tensor, dataset_name, title_suffix='', seed_to_plot=42):
+    # Nota: Seed por defecto 42 ya que es la única en la lista SEEDS
     methods = ['L1', 'L2', 'Dropout']
     n_cols = len(param_lists['L1']) 
     n_rows = 3
@@ -295,8 +295,11 @@ def plot_amplitude_grid_unified(nets_dict, param_lists, input_tensor, dataset_na
             ax_p = axes_p[i][j]
             ax_m = axes_m[i][j]
             
-            if val in nets_dict[method] and seed_to_plot in nets_dict[method][val]:
-                net = nets_dict[method][val][seed_to_plot]
+            # Chequeo defensivo de seed
+            actual_seed = seed_to_plot if seed_to_plot in nets_dict[method][val] else list(nets_dict[method][val].keys())[0]
+
+            if val in nets_dict[method] and actual_seed in nets_dict[method][val]:
+                net = nets_dict[method][val][actual_seed]
                 net.eval()
                 with torch.no_grad():
                     H = net.hidden_layer(x_sample).cpu().numpy()
@@ -355,15 +358,16 @@ def plot_amplitude_grid_unified(nets_dict, param_lists, input_tensor, dataset_na
         fig_m.savefig(f'results/amp_mean_{dataset_name}_{title_suffix}.png')
     plt.show()
 
-# --- EJECUCIÓN PRINCIPAL ---
+# --- EJECUCIÓN ---
 def run_experiment(train_dataset_exp, title_suffix="FullData", net_class=Net, **model_kwargs):
     actual_train_tensor = train_dataset_exp.tensors[0]
     
     train_eval_loader = DataLoader(train_dataset_exp, batch_size=1000, shuffle=False)
     train_loader = DataLoader(train_dataset_exp, batch_size=BATCH_SIZE, shuffle=True)
     
-    reg_vals_log = [1e-3, 1e-2, 1e-1, 5e-1, 1.0]
-    dropout_vals = [0.1, 0.2, 0.4, 0.5, 1.0]
+    # Rango de parámetros
+    reg_vals_log = [1e-4, 1e-3, 1e-2, 1e-1, 1.0]
+    dropout_vals = [0.0, 0.2, 0.4, 0.6, 0.8] # Dropout alto para ver colapso
     
     param_lists = {
         'L1': reg_vals_log,
@@ -377,7 +381,7 @@ def run_experiment(train_dataset_exp, title_suffix="FullData", net_class=Net, **
         for v in param_lists[m]:
             nets_storage[m][v] = {}
 
-    print(f"Training Baseline ({net_class.__name__}) & Computing Bins...")
+    print(f"Training Baseline ({net_class.__name__}) on CIFAR-10...")
     bin_edges = None
     
     n_train_samples = len(actual_train_tensor)
@@ -415,7 +419,6 @@ def run_experiment(train_dataset_exp, title_suffix="FullData", net_class=Net, **
         for val in p_list:
             for seed in SEEDS:
                 torch.manual_seed(seed)
-                
                 if method == 'Dropout':
                     net = net_class(dropout_p=val, **model_kwargs)
                     r_type, r_val = 'Dropout', 0.0
@@ -451,20 +454,31 @@ def run_experiment(train_dataset_exp, title_suffix="FullData", net_class=Net, **
     
     return df
 
-# --- RUN ---
-# print(">>> RUN 1: Full Dataset (60k, 64 neurons)")
+# --- RUN EXPERIMENTS ---
+
+# 1. Full Dataset
 # df_full = run_experiment(full_train_dataset, "FullData", net_class=Net, hidden_size=64)
 
-# print("\n>>> RUN 2: Reduced Dataset (1k, 64 neurons - Overfitting)")
+# 2. Reduced Dataset (1k, MLP)
 # indices = torch.randperm(len(tensor_x_train))[:1000]
 # reduced_train_dataset = TensorDataset(tensor_x_train[indices], tensor_y_train[indices])
 # df_reduced = run_experiment(reduced_train_dataset, "Reduced_Overfit", net_class=Net, hidden_size=64)
 
-# print("\n>>> RUN 3: Reduced Dataset (1k, 128 neurons, 4 layers)")
+# 3. Reduced Dataset (1k, Deep MLP)
 # df_deep = run_experiment(reduced_train_dataset, "DeepNet_Overfit", net_class=MultiLayerNet, hidden_size=128, num_layers=4)
 
-print("\n>>> RUN 4: Reduced Dataset (6k, ConvNet)")
-# Experimento 4 con ConvNet sobre dataset reducido
-indices = torch.randperm(len(tensor_x_train))[:6000]
+# 4. Reduced Dataset (1k, ConvNet) - EXPERIMENTO SOLICITADO
+print("\n>>> RUN 4: Reduced Dataset (1k, ConvNet) on CIFAR-10")
+indices = torch.randperm(len(tensor_x_train))[:1000]
 reduced_train_dataset = TensorDataset(tensor_x_train[indices], tensor_y_train[indices])
-df_conv = run_experiment(reduced_train_dataset, "ConvNet_Overfit", net_class=ConvNet, hidden_size=128)
+df_conv = run_experiment(reduced_train_dataset, "ConvNet_CIFAR_Overfit", net_class=ConvNet, hidden_size=128)
+
+"""
+SUGERENCIAS EXTRA PARA OVERFITTING EXTREMO SI ESTO NO BASTA:
+1. Eliminar Weight Decay (ya se ha hecho implícitamente al usar SGD simple sin parámetro weight_decay).
+2. Aumentar el tamaño de la capa oculta a 512 o 1024.
+3. Entrenar por muchas más épocas (ej. 200 o 500) hasta que Train Acc sea 1.0 clavado.
+4. Reducir el Batch Size a 16 o 32 para actualizaciones más ruidosas que a veces encajan mejor en mínimos locales de train.
+5. Desactivar cualquier Data Augmentation (aquí no hay, pero en general ayuda a overfittear).
+6. Usar un Learning Rate Schedule agresivo o Adam en lugar de SGD para memorizar más rápido.
+"""
