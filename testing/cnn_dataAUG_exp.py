@@ -10,7 +10,104 @@ import pandas as pd
 import seaborn as sns
 from scipy.signal import savgol_filter
 import os
-from torchvision import transforms
+# --- CONFIGURACIÓN ---
+import random
+import scipy.ndimage
+
+# --- CUSTOM TRANSFORMS (remplazo de torchvision) ---
+class CustomCompose:
+    def __init__(self, transforms_list):
+        self.transforms_list = transforms_list
+        
+    def __call__(self, img):
+        for t in self.transforms_list:
+            img = t(img)
+        return img
+
+class CustomRandomHorizontalFlip:
+    def __init__(self, p=0.5):
+        self.p = p
+        
+    def __call__(self, img):
+        # img: Tensor (C, H, W)
+        if random.random() < self.p:
+            return torch.flip(img, [2]) # Flip en el eje W (dim 2)
+        return img
+
+class CustomRandomCrop:
+    def __init__(self, size, padding=None):
+        self.size = size
+        self.padding = padding
+        
+    def __call__(self, img):
+        # img: Tensor (C, H, W)
+        if self.padding is not None:
+            # Pad (Left, Right, Top, Bottom)
+            # torch pad espera (last_dim_left, last_dim_right, 2nd_last_left, ...)
+            pad = self.padding
+            img = F.pad(img, (pad, pad, pad, pad), mode='constant', value=0)
+            
+        _, h, w = img.shape
+        th, tw = self.size, self.size
+        
+        if w == tw and h == th:
+            return img
+            
+        i = random.randint(0, h - th)
+        j = random.randint(0, w - tw)
+        
+        return img[:, i:i+th, j:j+tw]
+
+class CustomRandomRotation:
+    def __init__(self, degrees):
+        self.degrees = degrees
+        
+    def __call__(self, img):
+        # img: Tensor (C, H, W)
+        angle = random.uniform(-self.degrees, self.degrees)
+        
+        # Rotar usando scipy (requiere numpy)
+        # Nota: Convertir a numpy, rotar, volver a tensor
+        img_np = img.numpy()
+        channels = []
+        for c in range(img_np.shape[0]):
+            # reshape=False mantiene el tamaño recortando lo que sobra
+            # order=1 (bilinear) es más rápido que 3, mode='nearest' rellena bordes
+            rot = scipy.ndimage.rotate(img_np[c], angle, reshape=False, order=1, mode='nearest')
+            channels.append(rot)
+            
+        return torch.from_numpy(np.stack(channels)).float() #.copy() to ensure positive strides
+
+class CustomColorJitter:
+    def __init__(self, brightness=0, contrast=0, saturation=0, hue=0):
+        # Implementación simplificada
+        self.brightness = brightness
+        self.contrast = contrast
+        self.saturation = saturation
+        
+    def __call__(self, img):
+        # img: Tensor (C, H, W), valores [0, 1] aprox
+        
+        # 1. Brightness
+        if self.brightness > 0:
+            factor = random.uniform(1 - self.brightness, 1 + self.brightness)
+            img = img * factor
+        
+        # 2. Contrast
+        if self.contrast > 0:
+            factor = random.uniform(1 - self.contrast, 1 + self.contrast)
+            mean = img.mean(dim=(1, 2), keepdim=True)
+            img = (img - mean) * factor + mean
+            
+        # 3. Saturation (Simulación mezclando con Grayscale)
+        if self.saturation > 0:
+            factor = random.uniform(1 - self.saturation, 1 + self.saturation)
+            # Rec. 601 stats
+            grayscale = 0.2989 * img[0] + 0.5870 * img[1] + 0.1140 * img[2]
+            grayscale = grayscale.unsqueeze(0).expand_as(img)
+            img = img * factor + grayscale * (1 - factor)
+            
+        return torch.clamp(img, 0, 1)
 
 # --- CONFIGURACIÓN ---
 SAVE_MODELS = True
@@ -290,26 +387,26 @@ def run_experiment(train_tensor, train_labels, title_suffix="DataAug_Sweep", hid
     aug_configs = [
         (0, "None", None),
         
-        (1, "H-Flip", transforms.Compose([
-            transforms.RandomHorizontalFlip(p=1.0) # Forzar flip para ver efecto
+        (1, "H-Flip", CustomCompose([
+            CustomRandomHorizontalFlip(p=1.0) # Forzar flip para ver efecto
         ])),
         
-        (2, "Standard", transforms.Compose([
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomCrop(32, padding=4)
+        (2, "Standard", CustomCompose([
+            CustomRandomHorizontalFlip(p=0.5),
+            CustomRandomCrop(32, padding=4)
         ])),
         
-        (3, "Strong", transforms.Compose([
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomRotation(15)
+        (3, "Strong", CustomCompose([
+            CustomRandomHorizontalFlip(p=0.5),
+            CustomRandomCrop(32, padding=4),
+            CustomRandomRotation(15)
         ])),
         
-        (4, "Extreme", transforms.Compose([
-            transforms.RandomHorizontalFlip(p=0.5),
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomRotation(30),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)
+        (4, "Extreme", CustomCompose([
+            CustomRandomHorizontalFlip(p=0.5),
+            CustomRandomCrop(32, padding=4),
+            CustomRandomRotation(30),
+            CustomColorJitter(brightness=0.2, contrast=0.2, saturation=0.2)
         ]))
     ]
     
