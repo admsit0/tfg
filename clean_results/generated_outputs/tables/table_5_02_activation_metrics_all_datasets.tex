@@ -1,0 +1,71 @@
+\begin{table}{tab:5_02_cifar10}{Tabla 5.2 — CIFAR10: métricas de activación en fc1.}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{uniq\\_pctg (\\%)} & \textbf{Entropía H} & \textbf{Disp. ratio} & \textbf{bins} \\
+\midrule
+Aumento de datos & \textbf{0.785} & 89.22 & 1.78 & 0.46 & 30 \\
+BatchNorm & 0.770 & 84.30 & 1.53 & 0.41 & 30 \\
+Dropout & 0.727 & 37.23 & 1.17 & 0.29 & 30 \\
+L2 & 0.714 & 97.93 & 2.09 & 0.57 & 30 \\
+Ruido gaussiano & 0.697 & 100.00 & 2.93 & 1.11 & 30 \\
+Parada temprana & 0.696 & 20.56 & 0.88 & 0.22 & 30 \\
+Baseline & 0.694 & 99.98 & 2.87 & 1.06 & 30 \\
+L1 & 0.694 & 99.98 & 2.87 & 1.06 & 30 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_02_svhn}{Tabla 5.2 — SVHN: métricas de activación en fc1.}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{uniq\\_pctg (\\%)} & \textbf{Entropía H} & \textbf{Disp. ratio} & \textbf{bins} \\
+\midrule
+Aumento de datos & \textbf{0.907} & 0.69 & 0.06 & 0.33 & 10 \\
+Dropout & 0.904 & 2.74 & 0.19 & 0.48 & 10 \\
+BatchNorm & 0.889 & 0.70 & 0.10 & 0.31 & 10 \\
+Baseline & 0.880 & 19.75 & 0.79 & 1.00 & 10 \\
+L1 & 0.880 & 19.75 & 0.79 & 1.00 & 10 \\
+L2 & 0.880 & 5.63 & 0.33 & 0.59 & 10 \\
+Ruido gaussiano & 0.876 & 19.44 & 0.77 & 0.98 & 10 \\
+Parada temprana & 0.872 & 0.68 & 0.03 & 0.28 & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_02_cifar100}{Tabla 5.2 — CIFAR100: métricas de activación en fc1.}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{uniq\\_pctg (\\%)} & \textbf{Entropía H} & \textbf{Disp. ratio} & \textbf{bins} \\
+\midrule
+Aumento de datos & \textbf{0.447} & 40.95 & 1.33 & 1.31 & 10 \\
+BatchNorm & 0.418 & 75.10 & 1.61 & 1.71 & 10 \\
+Dropout & 0.361 & 29.49 & 1.20 & 1.18 & 10 \\
+L2 & 0.340 & 39.45 & 1.30 & 1.23 & 10 \\
+Parada temprana & 0.339 & 39.85 & 1.28 & 1.19 & 10 \\
+Ruido gaussiano & 0.328 & 34.42 & 1.23 & 1.15 & 10 \\
+L1 & 0.326 & 23.48 & 0.92 & 0.93 & 10 \\
+Baseline & 0.324 & 27.16 & 1.17 & 1.00 & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_02_fashionmnist}{Tabla 5.2 — FashionMNIST: métricas de activación en fc1.}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{uniq\\_pctg (\\%)} & \textbf{Entropía H} & \textbf{Disp. ratio} & \textbf{bins} \\
+\midrule
+BatchNorm & \textbf{0.919} & 15.34 & 1.08 & 0.62 & 10 \\
+Aumento de datos & 0.916 & 1.76 & 0.74 & 0.36 & 10 \\
+Dropout & 0.915 & 14.42 & 0.88 & 0.55 & 10 \\
+Baseline & 0.911 & 82.72 & 1.44 & 1.00 & 10 \\
+Ruido gaussiano & 0.911 & 76.88 & 1.36 & 0.91 & 10 \\
+L2 & 0.908 & 37.50 & 1.14 & 0.70 & 10 \\
+Parada temprana & 0.908 & 6.17 & 0.84 & 0.44 & 10 \\
+L1 & 0.900 & 1.64 & 0.62 & 0.25 & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}

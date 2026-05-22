@@ -1,0 +1,490 @@
+
+Este capítulo presenta los resultados de los cinco experimentos descritos en
+el Capítulo \ref{CAP:diseno} y los discute en su conjunto. Los resultados toman como dominio
+principal CIFAR-10 y se contrastan, cuando añaden información, con SVHN, CIFAR-100
+y FashionMNIST.
+
+% ═══════════════════════════════════════════════════════════════════════════════
+\section{Resultados de Accuracy: Búsqueda de Hiperparámetros (EXP-1)\label{sec:resultados_accuracy}}
+
+Para cada técnica se entrena un conjunto de modelos mediante \textit{grid search} sobre
+el hiperparámetro de regularización; para cada método se retiene el modelo con mayor
+\textit{val\_acc} al final de las 60 épocas de entrenamiento sobre CIFAR-10.
+
+Los resultados revelan tres grupos con comportamientos claramente diferenciados
+(Figura~\ref{fig:ranking_cifar10}). \textbf{Data Augmentation} y \textbf{Batch
+Normalization} logran mejoras sustanciales sobre el baseline, siendo los únicos métodos
+que superan 0.75 de val\_acc. En un nivel intermedio se encuentran \textbf{Dropout}
+y \textbf{L2}, con mejoras moderadas. El tercer grupo (\textbf{Gaussian Noise},
+\textbf{Early Stopping} y especialmente \textbf{L1}) apenas supera o ni siquiera
+alcanza el baseline: L1 es el único método que perjudica el rendimiento, reflejo de que
+su ventana de hiperparámetro viable es extremadamente estrecha y el modelo colapsa
+abruptamente para $\lambda \gtrsim 10^{-3}$.
+
+\begin{figure}{fig:ranking_cifar10}{Ranking de val\_acc final en CIFAR-10 (izquierda) y
+    SVHN (derecha). El orden relativo entre métodos se preserva en ambos dominios;
+    el rendimiento absoluto es mayor en SVHN por la mayor homogeneidad de sus imágenes.}
+    \begin{minipage}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{fig02_ranking_val_acc_CIFAR10}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{fig02_ranking_val_acc_SVHN}
+    \end{minipage}
+\end{figure}
+
+Más allá del ranking, la \textbf{brecha de generalización} (\textit{gap} = train\_acc
+$-$ val\_acc) diferencia nítidamente a los métodos. Baseline, L2 y Gaussian Noise
+alcanzan train\_acc~$\approx 1.0$ con un gap próximo a 0.30: el modelo memoriza el
+conjunto de entrenamiento sin que ello se traduzca en mejora de val\_acc. DataAug, en
+cambio, reduce la brecha a~$\sim$0.09 con una train\_acc de~0.877, evidenciando
+regularización implícita en el espacio de datos. BatchNorm logra alta val\_acc pero
+mantiene un gap de~$\sim$0.23, lo que sugiere que su ventaja proviene principalmente de
+estabilizar la optimización, no de suprimir el sobreajuste. Un caso particular es Early
+Stopping: detiene el entrenamiento en torno a la época~11 (patience=8) y aun así alcanza
+val\_acc competitiva, lo que apunta a que una fracción importante del sobreajuste en
+esta arquitectura se concentra en las épocas tardías del entrenamiento.
+
+\begin{figure}{fig:curvas_cifar10}{Análisis de Data Augmentation en CIFAR-10 (EXP-1).
+    Arriba: mapas de calor de val\_acc y train\_acc a lo largo de las 60 épocas para
+    cada nivel de aumentación. Abajo: mejor val\_acc y brecha de generalización en función
+    del nivel. La brecha desciende de $\sim$0.31 a $\sim$0.05, mostrando el efecto
+    regularizador más claro del experimento.}
+    \includegraphics[width=0.90\textwidth]{fig01_accuracy_curvas_CIFAR10}
+\end{figure}
+
+El panel derecho de la Figura~\ref{fig:ranking_cifar10} muestra el mismo experimento
+sobre SVHN. El rendimiento absoluto aumenta (las imágenes de dígitos son más homogéneas
+que las de CIFAR-10) pero el \textbf{ranking relativo se preserva}: el orden entre
+métodos es prácticamente idéntico al de CIFAR-10. En CIFAR-100, la complejidad del
+problema supera la capacidad de esta arquitectura y los rendimientos caen de forma
+drástica para todos los métodos: DataAug sigue liderando (val\_acc\,=\,0.44) seguido
+de BatchNorm (0.42), pero el resto queda agrupado entre 0.33 y 0.36, y el cuello de
+botella es la capacidad del modelo, no el tipo de regularización. En FashionMNIST se
+observa el efecto contrario: todos los métodos superan 0.91 de val\_acc y las diferencias
+entre ellos no alcanzan el 0.01, lo que constituye un techo de rendimiento claro para
+esta arquitectura sobre esta tarea. Llama la atención que el ranking invierte
+parcialmente: BatchNorm y Dropout lideran, por delante de DataAug, a diferencia de lo
+observado en CIFAR-10 y CIFAR-100. Este patrón transversal (conservación del ranking en
+SVHN, compresión hacia el techo en FashionMNIST, colapso de capacidad en CIFAR-100)
+confirma que CIFAR-10 constituye el punto de operación más informativo del experimento
+y que las conclusiones no son artefactos específicos del dominio.
+
+\FloatBarrier
+% ═══════════════════════════════════════════════════════════════════════════════
+\section{Análisis de Activaciones Internas\label{CAP:resultados_activaciones}}
+
+Los resultados de \textit{accuracy} miden el efecto externo de la regularización.
+A continuación se adopta la perspectiva interna: cómo cada técnica altera la
+distribución y diversidad de las representaciones ocultas de la red.
+
+\subsection{Correlación entre Métricas Internas y Rendimiento (EXP-2)\label{sec:correlacion_metricas}}
+
+El análisis de activaciones caracteriza la estructura interna de las representaciones
+a través de tres métricas complementarias. El \textbf{porcentaje de estados únicos
+(\textit{unique\_pctg})} mide la fracción de ejemplos de validación que producen una
+activación discreta diferente tras cuantizar el histograma en \textit{bins}: captura
+directamente la capacidad del modelo de distinguir representaciones individuales. La
+\textbf{entropía de Shannon} ($H$) del histograma cuantifica la uniformidad de la
+distribución de activaciones. El \textbf{ratio de dispersión} cuantifica la amplitud
+de las activaciones relativa al baseline. Aunque las tres miden aspectos distintos de la
+compacidad representacional, \textit{unique\_pctg} es especialmente útil para distinguir
+entre métodos, ya que captura directamente si el modelo colapsa ejemplos distintos a un
+mismo estado cuantizado.
+
+El estudio se centra en \texttt{fc1}, la última capa oculta antes del clasificador.
+Teóricamente, es la capa que agrega las características convolucionales en
+representaciones semánticas de clase, y su estructura determina directamente la
+discriminabilidad final del modelo. Empíricamente, calculando la desviación típica de
+\textit{unique\_pctg} sobre todos los valores del hiperparámetro de cada método,
+\texttt{fc1} muestra una variabilidad media de 27.2~pp frente a 10.9~pp de \texttt{conv3}
+y 2.6~pp de \texttt{conv1}: las capas tempranas aprenden filtros locales estables,
+independientes de la regularización, mientras que \texttt{fc1} es la capa diagnóstica
+por excelencia.
+
+Cabe señalar que los experimentos emplean tanto 10 como 30 \textit{bins} para CIFAR-10 y para SVHN. Los
+valores absolutos de \textit{unique\_pctg} no son directamente comparables entre
+resoluciones, pero la \textbf{estructura de ordenamiento relativo} entre métodos se
+preserva. La Tabla~\ref{tab:metricas_internas} lo ilustra mostrando ambas resoluciones
+en el escenario óptimo.
+
+\begin{table}{tab:metricas_internas}{Métricas de \textit{unique\_pctg} y entropía $H$ en \texttt{fc1}
+para la configuración óptima de cada método (CIFAR-10, validación).
+La comparativa 30 vs.\ 10 \textit{bins} muestra que el ordenamiento relativo entre
+métodos es invariante a la resolución de discretización.}
+\small
+\begin{tabular}{lc|cc|cc}
+\toprule
+& & \multicolumn{2}{c|}{\textbf{30 bins}} & \multicolumn{2}{c}{\textbf{10 bins}} \\
+\textbf{Método} & \textbf{val\_acc} & \textbf{uniq\_pctg (\%)} & \textbf{$H$}
+  & \textbf{uniq\_pctg (\%)} & \textbf{$H$} \\
+\midrule
+Data Aug    & 0.785 &  89.22 & 1.78 &  7.12 & 0.49 \\
+Batch Norm  & 0.770 &  84.30 & 1.53 &  4.29 & 0.39 \\
+Dropout     & 0.727 &  37.23 & 1.17 &  2.83 & 0.08 \\
+L2          & 0.714 &  97.93 & 2.09 & 11.70 & 0.72 \\
+Gauss Noise & 0.697 & 100.00 & 2.93 & 68.35 & 1.52 \\
+Early Stop  & 0.696 &  20.56 & 0.88 &  0.63 & 0.03 \\
+Baseline    & 0.694 &  99.98 & 2.87 & 61.41 & 1.47 \\
+L1          & 0.694 &  99.98 & 2.87 & 61.41 & 1.47 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La Tabla~\ref{tab:metricas_3dim} presenta las tres métricas para el
+escenario óptimo de cada método, confirmando la tesis del \textit{sweet spot} desde tres
+puntos de vista: los tres métodos con mejor val\_acc (DataAug, BatchNorm, Dropout) presentan
+\textit{unique\_pctg} intermedio, $H$ intermedia \textit{y} ratio de dispersión menor
+que la unidad (representaciones más compactas que el baseline). Los métodos con peor
+rendimiento incumplen al menos uno de los tres criterios: \textit{unique\_pctg} o $H$
+en la zona saturada ($\approx$100\% / $\approx$2.9), o ratio de dispersión $\geq 1.0$.
+
+\begin{table}{tab:metricas_3dim}{Las tres métricas de activación en \texttt{fc1} para
+el escenario óptimo de cada método (CIFAR-10, 30 bins). Los métodos en la zona de
+alto rendimiento satisfacen simultáneamente los tres criterios de la zona intermedia.}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{val\_acc} & \textbf{uniq\_pctg (\%)} & \textbf{Entropía $H$}
+  & \textbf{Disp.\ ratio} \\
+\midrule
+Data Aug    & 0.785 &  89.22 & 1.78 & 0.46 \\
+Batch Norm  & 0.770 &  84.30 & 1.53 & 0.41 \\
+Dropout     & 0.727 &  37.23 & 1.17 & 0.29 \\
+L2          & 0.714 &  97.93 & 2.09 & 0.57 \\
+Gauss Noise & 0.697 & 100.00 & 2.93 & 1.11 \\
+Early Stop  & 0.696 &  20.56 & 0.88 & 0.22 \\
+Baseline    & 0.694 &  99.98 & 2.87 & $\sim$1.00 \\
+L1          & 0.694 &  99.98 & 2.87 & 1.06 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Un aspecto clave de la Tabla~\ref{tab:metricas_3dim} es la \textbf{covarianza positiva
+entre las tres métricas}: los métodos en la zona saturada (GaussNoise, Baseline, L1)
+presentan simultáneamente \textit{unique\_pctg} alto, $H$ alta y ratio de dispersión
+$\geq$1.0; los métodos en la zona de colapso (EarlyStopping, Dropout sobre-regularizado)
+muestran las tres métricas bajas al mismo tiempo. Esta co-varianza no es accidental: las
+tres son facetas distintas de la misma cantidad subyacente (la diversidad informacional
+del espacio de activación). Que el \textit{sweet spot} aparezca de forma coherente en
+las tres medidas simultáneamente refuerza la robustez empírica del hallazgo.
+
+Los datos revelan además un \textbf{patrón no lineal} confirmado sobre el \textit{grid
+search} completo: las configuraciones con \textit{unique\_pctg} intermedio
+($\approx$30--90\% a 30 bins) concentran los mejores val\_acc, mientras los extremos
+(saturación de $\approx$100\% o colapso por debajo del 25\%) corresponden a peor
+generalización. Las Figuras~\ref{fig:entropia_vs_acc} y~\ref{fig:dispersion_vs_acc}
+visualizan este patrón sobre \textbf{todas} las configuraciones evaluadas (no solo las
+óptimas), con el eje de val\_acc restringido a la región de interés para resaltar la
+curvatura. L2 es una excepción parcial: su óptimo cae en unique\_pctg~$\approx$~98\%
+pero el ratio de dispersión permanece por debajo de la unidad (0.57), porque la
+restricción $\ell_2$ actúa sobre la magnitud de los pesos sin necesariamente comprimir
+las representaciones intermedias.
+
+\begin{figure}{fig:entropia_vs_acc}{Dispersión de val\_acc frente a \textit{unique\_pctg}
+    en \texttt{fc1} (CIFAR-10, 30 bins, todas las configuraciones del \textit{grid search}).
+    La zona intermedia de \textit{unique\_pctg} concentra los mejores val\_acc.}
+    \includegraphics[width=0.82\textwidth]{fig03_entropia_vs_acc}
+\end{figure}
+
+\begin{figure}{fig:dispersion_vs_acc}{Dispersión de val\_acc frente al ratio de
+    dispersión en \texttt{fc1} (CIFAR-10). Los métodos mejor regularizados muestran
+    dispersión inferior a la del baseline (ratio~$<$~1).}
+    \includegraphics[width=0.82\textwidth]{fig04_dispersion_vs_acc}
+\end{figure}
+
+Una comparativa especialmente ilustrativa es la de L1 frente a L2: con val\_acc
+similares, L2 mantiene representaciones ricas (\textit{unique\_pctg}~$\approx$~98\%),
+mientras que L1 en su rango regularizado las colapsa drásticamente. Dos regularizadores
+con rendimiento comparable actúan por mecanismos internos radicalmente distintos.
+
+El mismo estudio replicado en SVHN (Figura~\ref{fig:svhn_unique_pctg_vs_acc}) muestra que el
+patrón tripartito (sub-regularización, zona óptima, colapso) se reproduce con coherencia
+al de CIFAR-10, confirmando la validez diagnóstica de la métrica entre dominios.
+
+En CIFAR-100, sin embargo, la señal interna desaparece por saturación: todos los
+métodos convergen a \textit{unique\_pctg} cercano al 100\% en \texttt{fc1}, con entropías
+en el rango $[2.1,\,3.5]$, muy por encima del intervalo óptimo de CIFAR-10. La causa
+es la mayor dimensionalidad del problema (100 clases): la red necesita representaciones
+más diversas para separar todas las categorías, y la zona de colapso simplemente no
+aparece en el rango de hiperparámetros evaluado. En este contexto, la métrica interna
+deja de ser discriminante porque el cuello de botella es la capacidad de la arquitectura,
+no la intensidad de la regularización.
+
+En FashionMNIST (Figura~\ref{fig:fashionmnist_unique_pctg_vs_acc}) el comportamiento
+es distinto. La mayoría de métodos satura igualmente cerca del 100\%, pero DataAug
+se sitúa en el 73.6\% (dentro de la zona óptima identificada en CIFAR-10) mientras
+mantiene un \textit{val\_acc} competitivo. El efecto techo de rendimiento (todos los
+métodos entre 0.91 y 0.92) diluye la correlación con la métrica, pero la posición de
+DataAug ilustra que, incluso en tareas sencillas, una regularización basada en diversidad
+de datos produce representaciones con menor saturación en \texttt{fc1}.
+
+\begin{figure}{fig:svhn_unique_pctg_vs_acc}{Dispersión de val\_acc frente a
+    \textit{unique\_pctg} en \texttt{fc1} para SVHN (10 bins). El patrón tripartito
+    es análogo al de CIFAR-10, confirmando la consistencia de la métrica entre dominios.}
+    \includegraphics[width=0.82\textwidth]{fig10_svhn_unique_pctg_vs_acc}
+\end{figure}
+
+\begin{figure}{fig:fashionmnist_unique_pctg_vs_acc}{Dispersión de val\_acc frente a
+    \textit{unique\_pctg} en \texttt{fc1} para FashionMNIST (30 bins). La mayoría de
+    métodos se agrupa cerca del 100\% por efecto techo; DataAug se mantiene en la zona
+    moderada (73.6\%), coherente con el rango óptimo identificado en CIFAR-10.}
+    \includegraphics[width=0.82\textwidth]{fig11_fashionmnist_unique_pctg_vs_acc}
+\end{figure}
+
+\FloatBarrier
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Evolución Temporal de las Representaciones (EXP-3)}
+
+La Figura~\ref{fig:temporal_custom} muestra la evolución de \textit{unique\_pctg} durante
+las 60 épocas de entrenamiento en las tres capas: \texttt{conv1}, \texttt{conv3} y
+\texttt{fc1}.
+
+\begin{figure}{fig:temporal_custom}{Evolución temporal de \textit{unique\_pctg} en las
+    tres capas de la CNN (CIFAR-10, serie Custom). \texttt{conv1} permanece al 100\%
+    en todos los métodos durante todo el entrenamiento. \texttt{conv3} y \texttt{fc1}
+    muestran dinámicas muy distintas: la compresión inicial de \texttt{fc1} y su
+    recuperación diferenciada entre métodos es el principal elemento diagnóstico.}
+    \includegraphics[width=0.96\textwidth]{fig05_temporal_uniquePctg_Custom}
+\end{figure}
+
+Los datos de la época~1 revelan un contraste muy marcado entre capas. \texttt{conv1}
+alcanza el 100\% de \textit{unique\_pctg} para \textbf{todos} los métodos desde el
+inicio: esta capa opera directamente sobre los parches de píxeles de las imágenes de
+entrada, que son intrínsecamente diversos entre sí; la alta dimensionalidad de entrada
+y el receptivo campo local garantizan representaciones únicas por imagen incluso con
+pesos aleatorios. En el extremo opuesto, \texttt{fc1} comienza prácticamente colapsada:
+Baseline, GaussNoise y L2 arrancan con unique\_pctg~$\approx$~1\%, Dropout y DataAug
+con~$\approx$~0.5\%. El motivo es geométrico: \texttt{fc1} es una proyección lineal
+totalmente conectada que agrega toda la información espacial post-pooling en un único
+vector; con pesos aleatorios, esta proyección de alta a baja dimensionalidad colapsa
+entradas distintas a activaciones discretas muy similares. \texttt{conv3} arranca en
+una posición intermedia (4--12\%), ya parcialmente comprimida por los pasos de
+\textit{pooling} previos. La excepción es \textbf{BatchNorm}, que en la primera época
+muestra \texttt{conv3}~$\approx$~67\% y \texttt{fc1}~$\approx$~42\%: la normalización
+por lotes regulariza las activaciones desde el primer paso hacia delante e impide el
+colapso inicial.
+
+El seguimiento a lo largo de las 60 épocas permite identificar tres fases con dinámicas
+distintas en \texttt{fc1}. Durante las primeras diez épocas \texttt{fc1} permanece muy
+comprimida (2--15\%) mientras \texttt{conv3} se recupera con rapidez (67--98\%): la red
+aprende filtros básicos y la información todavía no fluye de forma discriminativa hacia
+las capas superiores, mientras \texttt{conv1} permanece inalterada, ya saturada desde el
+inicio. Entre las épocas 10 y 30 se produce la divergencia crítica entre métodos:
+\textbf{Baseline} y \textbf{Gaussian Noise} recuperan \texttt{fc1} de forma acelerada,
+alcanzando $\approx$99\% al final del periodo, mientras que \textbf{DataAug} y
+\textbf{Dropout} mantienen la compresión en torno al 40\% (la aumentación de datos y
+el apagado aleatorio de neuronas obligan a construir representaciones más compactas) y
+\textbf{L2} también permanece comprimido ($\approx$41\%) por la penalización continua
+sobre los pesos. A partir de la época 30 el sistema se estabiliza: \textbf{Baseline}
+y \textbf{Gaussian Noise} saturan al 100\%,
+sin compresión representacional residual. \textbf{L2} termina en el 44.8\%, el valor
+más bajo de la serie, señal de una compresión continua y activa. \textbf{Batch Norm}
+y \textbf{Dropout} convergen a valores intermedios (85--88\%), coherentes con la zona
+de buen rendimiento identificada en EXP-2. \textbf{DataAug} termina en el 95.7\% en
+la serie Custom, pero en el escenario óptimo (nivel de aumentación 2) su \texttt{fc1}
+alcanza 89.2\%, confirmando que el nivel de aumentación controla directamente el grado
+de compresión representacional en la capa superior.
+
+\FloatBarrier
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Robustez ante Ruido en los Datos (EXP-4)}
+
+Se añade ruido gaussiano de intensidad creciente a las imágenes de validación,
+manteniendo los pesos inalterados, para evaluar cuánto rendimiento retiene cada método.
+
+\begin{figure}{fig:robustez_datos}{Curvas de degradación del \textit{accuracy} ante ruido gaussiano en los
+    datos de entrada (CIFAR-10, serie Custom). Los modelos fueron entrenados sin ruido.}
+    \includegraphics[width=0.82\textwidth]{fig06_robustez_datos_Custom}
+\end{figure}
+
+\begin{table}{tab:robustez_datos}{Retención de \textit{accuracy} ante ruido máximo en datos de entrada
+(CIFAR-10, serie Custom, $N_{\text{RUNS}}$=3).}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Método} & \textbf{acc($\sigma$=0)} & \textbf{Retención a $\sigma$=0.5 (\%)} \\
+\midrule
+Data Aug        & 77.7\% & 18.9 \\
+Batch Norm      & 76.8\% & 21.1 \\
+Dropout         & 71.2\% & 23.9 \\
+L2              & 68.2\% & 31.2 \\
+Baseline        & 68.5\% & 33.3 \\
+\textbf{Gauss Noise} & 63.9\% & \textbf{51.6} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+Los resultados revelan una \textbf{disyuntiva entre rendimiento y robustez a entradas
+ruidosas}: los métodos con mayor \textit{accuracy} en condiciones limpias son
+precisamente los que peor retienen su rendimiento ante ruido intenso. Gaussian Noise
+es el método más robusto ante este tipo de perturbación (directamente como consecuencia
+de haber entrenado con ruido del mismo tipo), aunque parte de un \textit{accuracy}
+base menor. La regularización orienta el aprendizaje hacia invarianzas específicas al
+tipo de variabilidad del entrenamiento, no hacia una robustez genérica.
+
+\FloatBarrier
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Robustez ante Ruido en los Pesos y Análisis de Mínimos Planos (EXP-5)}
+
+Se añade ruido gaussiano a los pesos de capas específicas tras el entrenamiento para
+medir la estabilidad paramétrica de cada modelo.
+
+\begin{figure}{fig:robustez_conv_layers}{Degradación del \textit{accuracy} al perturbar los pesos de
+    \texttt{conv1} (izquierda) y \texttt{conv3} (derecha) (CIFAR-10, Custom).}
+    \begin{minipage}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{fig07_robustez_pesos_conv1_Custom}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.49\textwidth}
+        \includegraphics[width=\textwidth]{fig07b_robustez_pesos_conv3_Custom}
+    \end{minipage}
+\end{figure}
+
+El hallazgo más llamativo es \textbf{BatchNorm}: a pesar de ser el segundo método más
+preciso, colapsa drásticamente ante perturbaciones en los pesos de las capas
+convolucionales, indicando que converge a mínimos <<agudos>> (\textit{sharp minima}).
+
+\begin{figure}{fig:robustez_fc1}{Degradación del \textit{accuracy} al perturbar los pesos de \texttt{fc1}
+    (CIFAR-10, Custom). Dropout muestra la mayor robustez, coherente con la búsqueda de
+    mínimos planos.}
+    \includegraphics[width=0.75\textwidth]{fig08_robustez_pesos_fc1_Custom}
+\end{figure}
+
+\begin{table}{tab:robustez_pesos}{Retención de \textit{accuracy} a $\sigma$=0.15 de ruido en pesos, por
+capa (CIFAR-10, serie Custom).}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Método} & \textbf{Ret. Conv1 (\%)} & \textbf{Ret. Conv3 (\%)}
+  & \textbf{Ret. FC1 (\%)} \\
+\midrule
+Gaussian Noise (0.1)   & \textbf{94.9} & \textbf{80.3} & 68.5 \\
+Baseline               & 93.7 & 75.7 & 68.4 \\
+Dropout (0.3)          & 91.0 & 79.4 & \textbf{79.9} \\
+L2 (0.001)             & 89.5 & \textbf{40.7} & \textbf{39.9} \\
+Data Aug (2.0)         & 83.8 & 67.5 & 69.9 \\
+\textbf{Batch Norm}    & \textbf{41.0} & 41.4 & 60.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\textbf{Dropout} es el único método con robustez alta y \textit{consistente} en las
+tres capas. \textbf{L2} muestra un perfil heterogéneo: muy robusto en \texttt{conv1}
+pero con colapso pronunciado en \texttt{conv3} y \texttt{fc1}, revelando una protección
+que no se extiende uniformemente a las capas profundas. La
+Figura~\ref{fig:comparativa_capas} resume visualmente esta heterogeneidad inter-capa.
+
+\begin{figure}{fig:comparativa_capas}{Retención de \textit{accuracy} a $\sigma=0.15$ para cada método y capa.
+    La consistencia de Dropout en todas las capas contrasta con el comportamiento
+    heterogéneo de L2 y el colapso de BatchNorm en capas convolucionales.}
+    \includegraphics[width=0.82\textwidth]{fig07c_comparativa_capas_sigma15_Custom}
+\end{figure}
+
+\FloatBarrier
+% ─────────────────────────────────────────────────────────────────────────────
+\subsection{Síntesis de los Experimentos}
+
+El análisis conjunto revela una \textbf{tensión fundamental} entre accuracy, robustez
+distribucional y estabilidad paramétrica. Ningún método domina simultáneamente en las
+tres dimensiones:
+
+\begin{table}{tab:resumen_dimensiones}{Mejor y peor método en cada dimensión de evaluación (CIFAR-10).}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Dimensión} & \textbf{Mejor} & \textbf{Peor} \\
+\midrule
+Accuracy                     & DataAug         & L1 (por debajo del baseline) \\
+Robustez datos               & Gaussian Noise  & Batch Norm \\
+Robustez pesos Conv1         & Gaussian Noise  & Batch Norm \\
+Robustez pesos Conv3         & Gaussian Noise  & L2 \\
+Robustez pesos FC1           & Dropout         & L2 \\
+Consistencia inter-capas     & Dropout         & L2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\FloatBarrier
+% ═══════════════════════════════════════════════════════════════════════════════
+\section{Discusión\label{CAP:discusion}}
+
+Los cinco experimentos anteriores aportan resultados desde perspectivas independientes:
+\textit{accuracy} comparado, representaciones internas, evolución temporal, robustez
+a ruido en datos y estabilidad paramétrica. A continuación se conectan estos resultados
+entre sí y con la literatura existente.
+
+El resultado más transversal del estudio es que \textbf{ningún método domina en todas
+las dimensiones relevantes}. Si el \textit{accuracy} en validación fuera el único
+criterio, la respuesta sería trivial: usar Data Augmentation. Los experimentos de
+robustez revelan sin embargo una imagen considerablemente más compleja. Data Augmentation,
+el método más preciso, es uno de los menos robustos ante ruido de píxel; Batch
+Normalization converge a mínimos agudos en capas convolucionales y colapsa ante
+perturbaciones moderadas de pesos; Gaussian Noise es el más robusto ante entradas
+ruidosas pero sacrifica rendimiento; y Dropout es el único con robustez consistente
+en todas las capas, convergiendo sistemáticamente a mínimos planos en línea con
+resultados previos \cite{hochreiter1997flat,keskar2017large,wan2013regularization,gal2016dropout}.
+L2, por su parte, presenta un perfil asimétrico: muy robusto en capas tempranas pero
+frágil en capas profundas. La Tabla~\ref{tab:evaluacion_multidim} y la
+Figura~\ref{fig:radar} sintetizan esta heterogeneidad, cuya implicación práctica directa
+es que la elección del regularizador debería guiarse por las prioridades del problema,
+no por un único indicador de rendimiento.
+
+\begin{table}{tab:evaluacion_multidim}{Evaluación comparativa de los regularizadores en tres dimensiones:
+\textit{accuracy}, robustez a ruido en datos y estabilidad paramétrica (CIFAR-10).}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{val\_acc} & \textbf{Rob.~datos} & \textbf{Rob.~pesos (fc1)} & \textbf{Mínimo} \\
+\midrule
+Gauss Noise & 0.697 & muy alta  & alta       & Plano-medio \\
+L2          & 0.714 & media     & baja       & Heterogéneo \\
+Baseline    & 0.694 & media     & alta       & Variable    \\
+Dropout     & 0.727 & baja      & muy alta   & \textbf{Plano} \\
+Data Aug    & 0.785 & muy baja  & alta       & Plano-medio \\
+Batch Norm  & 0.770 & muy baja  & media      & \textbf{Agudo (conv)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}{fig:radar}{Evaluación multidimensional normalizada de los regularizadores (CIFAR-10). Ningún método
+    domina en las tres dimensiones simultáneamente.}
+    \includegraphics[width=0.68\textwidth]{fig09_radar_multidimensional}
+\end{figure}
+
+Esta heterogeneidad entre métodos no es, sin embargo, arbitraria. Los experimentos de
+activaciones internas muestran que \textit{unique\_pctg}, entropía de Shannon y ratio
+de dispersión en \texttt{fc1} muestran correlaciones sistemáticas con el rendimiento y
+covariación positiva entre ellas. Existe una zona óptima de complejidad representacional
+(entropía intermedia, diversidad moderada, ratio inferior a la unidad) donde se
+concentran los métodos de mayor \textit{accuracy}; los métodos colapsados (Early Stopping)
+o saturados (Gaussian Noise, Baseline) quedan desplazados hacia los extremos en las tres
+métricas simultáneamente. Esta zona es interpretable: por debajo de ella la red pierde
+poder discriminativo; por encima, tiende a memorizar patrones de entrenamiento. Desde el
+punto de vista práctico, estas señales son detectables sin necesidad de esperar al
+\textit{accuracy} final, lo que abre la puerta a diagnósticos tempranos durante el
+desarrollo del modelo.
+
+El experimento de evolución temporal añade una tercera dimensión al cuadro. Todos los
+métodos, salvo BatchNorm, inician con una compresión representacional extrema en
+\texttt{fc1} y se diferencian progresivamente a lo largo del entrenamiento, en un patrón
+coherente con la hipótesis del \textit{information bottleneck}
+\cite{tishby2017opening}, aunque medido aquí mediante una aproximación discreta.
+BatchNorm evita este colapso inicial gracias al suavizado del paisaje de pérdida
+\cite{santurkar2018does} y diferencia representaciones antes, pero a costa de mínimos más
+agudos: los hallazgos de robustez paramétrica y de dinámica temporal resultan así
+coherentes entre sí y se refuerzan mutuamente. La capacidad del baseline de generalizar
+razonablemente sin regularización explícita es, por su parte, consistente con la
+observación de Zhang et al.\ \cite{zhang2017understanding} sobre la generalización
+implícita de las redes neuronales profundas.
+
+Sin embargo, hay que señalar algunas limitaciones. La arquitectura
+empleada es pequeña y las conclusiones no deben extrapolarse directamente a modelos más
+profundos. La métrica \textit{unique\_pctg} depende de la resolución de discretización,
+por lo que los valores absolutos no son comparables entre configuraciones distintas,
+aunque las tendencias cualitativas sí lo son. Los experimentos estudian cada técnica de
+forma aislada; en la práctica, las combinaciones pueden producir efectos no lineales
+\cite{li2019understanding}. Por último, el número de repeticiones es reducido, lo que
+obliga a interpretar los resultados como tendencias antes que como estimaciones
+estadísticamente precisas.

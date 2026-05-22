@@ -1,0 +1,71 @@
+\begin{table}{tab:5_06_cifar10}{Tabla 5.6 — CIFAR10: evaluación comparativa multidimensional.}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{Rob. datos} & \textbf{Rob. pesos fc1} & \textbf{Mínimo} \\
+\midrule
+Aumento de datos & 0.785 & muy baja (18.7\%) & media (67.0\%) & estable medio \\
+BatchNorm & 0.770 & baja (21.0\%) & media (63.5\%) & agudo (conv) \\
+Dropout & 0.727 & media (22.9\%) & muy alta (86.1\%) & plano \\
+L2 & 0.714 & media (24.9\%) & muy baja (47.6\%) & heterogéneo \\
+Ruido gaussiano & 0.697 & alta (29.9\%) & alta (67.7\%) & heterogéneo \\
+Parada temprana & 0.696 & media (29.6\%) & alta (77.6\%) & plano \\
+Baseline & 0.694 & muy alta (33.3\%) & media (67.1\%) & heterogéneo \\
+L1 & 0.694 & alta (32.1\%) & baja (54.2\%) & heterogéneo \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_06_svhn}{Tabla 5.6 — SVHN: evaluación comparativa multidimensional.}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{Rob. datos} & \textbf{Rob. pesos fc1} & \textbf{Mínimo} \\
+\midrule
+Aumento de datos & 0.905 & muy baja (17.0\%) & baja (61.2\%) & heterogéneo \\
+Dropout & 0.902 & media (31.4\%) & muy alta (91.6\%) & plano \\
+BatchNorm & 0.893 & baja (24.4\%) & media (64.6\%) & agudo (conv) \\
+L2 & 0.881 & muy alta (42.1\%) & muy baja (45.9\%) & heterogéneo \\
+Baseline & 0.880 & alta (38.1\%) & media (68.9\%) & heterogéneo \\
+Ruido gaussiano & 0.878 & alta (37.9\%) & alta (72.2\%) & plano-medio \\
+Parada temprana & 0.870 & media (35.8\%) & alta (81.4\%) & plano \\
+L1 & 0.861 & media (31.4\%) & media (64.3\%) & heterogéneo \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_06_cifar100}{Tabla 5.6 — CIFAR100: evaluación comparativa multidimensional.}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{Rob. datos} & \textbf{Rob. pesos fc1} & \textbf{Mínimo} \\
+\midrule
+Aumento de datos & 0.447 & baja (4.7\%) & media (40.2\%) & variable \\
+BatchNorm & 0.418 & muy baja (4.6\%) & baja (35.4\%) & estable medio \\
+Dropout & 0.361 & media (8.6\%) & alta (48.7\%) & heterogéneo \\
+L2 & 0.340 & muy alta (12.3\%) & muy baja (33.1\%) & heterogéneo \\
+Parada temprana & 0.339 & media (10.8\%) & alta (49.4\%) & heterogéneo \\
+Ruido gaussiano & 0.328 & alta (12.1\%) & media (48.3\%) & heterogéneo \\
+L1 & 0.326 & media (9.8\%) & media (37.5\%) & heterogéneo \\
+Baseline & 0.324 & alta (12.0\%) & muy alta (50.2\%) & heterogéneo \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_06_fashionmnist}{Tabla 5.6 — FashionMNIST: evaluación comparativa multidimensional.}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{Rob. datos} & \textbf{Rob. pesos fc1} & \textbf{Mínimo} \\
+\midrule
+BatchNorm & 0.919 & baja (21.9\%) & muy baja (63.7\%) & agudo (conv) \\
+Aumento de datos & 0.916 & muy baja (21.5\%) & alta (81.3\%) & agudo (conv) \\
+Dropout & 0.915 & media (46.0\%) & muy alta (90.0\%) & plano \\
+Baseline & 0.911 & muy alta (66.2\%) & media (75.6\%) & plano \\
+Ruido gaussiano & 0.911 & alta (62.5\%) & media (78.7\%) & plano \\
+L2 & 0.908 & media (55.3\%) & baja (67.4\%) & heterogéneo \\
+Parada temprana & 0.908 & alta (59.1\%) & alta (83.5\%) & plano \\
+L1 & 0.900 & media (46.9\%) & media (73.8\%) & plano-medio \\
+\bottomrule
+\end{tabular}
+\end{table}

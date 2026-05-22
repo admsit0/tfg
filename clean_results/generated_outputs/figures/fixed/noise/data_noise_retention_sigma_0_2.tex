@@ -1,0 +1,52 @@
+\begin{table}{tab:data_noise_retention_sigma_0_2}{Retención de \textit{accuracy} ante ruido gaussiano en datos ($\sigma$=0.2) por método en los cuatro datasets evaluados.}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Método} & \textbf{Acc. $\sigma$=0} & \textbf{Acc. $\sigma$=0.2} & \textbf{Retención (\%)} \\
+\midrule
+\multicolumn{4}{l}{\textbf{CIFAR-10}}\\
+\midrule
+Ruido gaussiano & 69.630 & 53.037 & \textbf{76.2} \\
+L1 & 65.380 & 46.910 & 71.7 \\
+Baseline & 68.530 & 48.853 & 71.3 \\
+L2 & 71.250 & 49.180 & 69.0 \\
+Parada temprana & 0.696 & 0.441 & 63.4 \\
+Aumento de datos & 77.680 & 38.587 & 49.7 \\
+Dropout & 71.760 & 34.890 & 48.6 \\
+BatchNorm & 76.770 & 26.770 & 34.9 \\
+\midrule
+\multicolumn{4}{l}{\textbf{SVHN}}\\
+\midrule
+L2 & 87.953 & 72.023 & \textbf{81.9} \\
+Baseline & 87.980 & 69.626 & 79.1 \\
+Ruido gaussiano & 87.827 & 68.983 & 78.5 \\
+Parada temprana & 0.870 & 0.664 & 76.3 \\
+Dropout & 90.208 & 64.061 & 71.0 \\
+L1 & 84.784 & 59.413 & 70.1 \\
+BatchNorm & 89.213 & 48.353 & 54.2 \\
+Aumento de datos & 89.947 & 47.545 & 52.9 \\
+\midrule
+\multicolumn{4}{l}{\textbf{CIFAR-100}}\\
+\midrule
+L2 & 32.920 & 18.300 & \textbf{55.6} \\
+Ruido gaussiano & 28.320 & 15.140 & 53.5 \\
+Baseline & 27.040 & 14.090 & 52.1 \\
+Parada temprana & 0.339 & 0.166 & 49.1 \\
+Dropout & 33.690 & 14.623 & 43.4 \\
+L1 & 27.240 & 10.160 & 37.3 \\
+BatchNorm & 41.610 & 7.940 & 19.1 \\
+Aumento de datos & 42.800 & 7.440 & 17.4 \\
+\midrule
+\multicolumn{4}{l}{\textbf{FashionMNIST}}\\
+\midrule
+L2 & 90.790 & 86.390 & \textbf{95.2} \\
+Baseline & 91.100 & 86.383 & 94.8 \\
+Ruido gaussiano & 91.100 & 86.257 & 94.7 \\
+Parada temprana & 0.908 & 0.854 & 94.1 \\
+L1 & 89.260 & 83.857 & 93.9 \\
+Dropout & 91.180 & 84.483 & 92.7 \\
+BatchNorm & 91.870 & 75.373 & 82.0 \\
+Aumento de datos & 91.340 & 60.113 & 65.8 \\
+\bottomrule
+\end{tabular}
+\end{table}

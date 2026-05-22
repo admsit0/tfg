@@ -1,0 +1,38 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow.keras.datasets import cifar100
+
+# Cargar CIFAR-100
+(x_train, y_train), (_, _) = cifar100.load_data()
+
+# Seleccionar 3 imágenes aleatorias
+idxs = np.random.choice(len(x_train), size=3, replace=False)
+images = x_train[idxs].astype(np.float32) / 255.0
+
+# Niveles de ruido
+sigmas = [0.1, 0.2, 0.3, 0.4, 0.5]
+
+# Figura 3 filas x 6 columnas
+fig, axes = plt.subplots(3, 6, figsize=(18, 9))
+
+for i in range(3):
+    image = images[i]
+
+    axes[i, 0].imshow(image)
+    axes[i, 0].set_title("Original")
+    axes[i, 0].axis("off")
+
+    for j, sigma in enumerate(sigmas, start=1):
+        noise = np.random.normal(loc=0.0, scale=sigma, size=image.shape)
+        noisy_image = np.clip(image + noise, 0.0, 1.0)
+
+        axes[i, j].imshow(noisy_image)
+        axes[i, j].set_title(f"σ={sigma}")
+        axes[i, j].axis("off")
+
+plt.tight_layout()
+
+# guardar en el directorio actual
+plt.savefig("cifar100_noise_grid.png", dpi=300, bbox_inches="tight")
+
+plt.show()

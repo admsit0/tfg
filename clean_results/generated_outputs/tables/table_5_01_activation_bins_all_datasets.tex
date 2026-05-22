@@ -1,0 +1,71 @@
+\begin{table}{tab:5_01_cifar10}{Tabla 5.1 — CIFAR10: unique\_pctg y entropía H en fc1.}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{uniq 30 (\\%)} & \textbf{H 30} & \textbf{uniq 10 (\\%)} & \textbf{H 10} \\
+\midrule
+Aumento de datos & \textbf{0.785} & 89.22 & 1.78 & 7.12 & 0.49 \\
+BatchNorm & 0.770 & 84.30 & 1.53 & 4.29 & 0.38 \\
+Dropout & 0.727 & 37.23 & 1.17 & 2.83 & 0.08 \\
+L2 & 0.714 & 97.93 & 2.09 & 11.70 & 0.72 \\
+Baseline & 0.694 & 99.98 & 2.87 & 61.41 & 1.47 \\
+Ruido gaussiano & 0.697 & 100.00 & 2.93 & 68.35 & 1.52 \\
+Parada temprana & 0.696 & 20.56 & 0.88 & 0.63 & 0.03 \\
+L1 & 0.694 & 99.98 & 2.87 & 61.41 & 1.47 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_01_svhn}{Tabla 5.1 — SVHN: unique\_pctg y entropía H en fc1.}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{uniq 30 (\\%)} & \textbf{H 30} & \textbf{uniq 10 (\\%)} & \textbf{H 10} \\
+\midrule
+Aumento de datos & \textbf{0.907} & 16.84 & n/d & 0.69 & 0.06 \\
+BatchNorm & 0.889 & 15.36 & n/d & 0.70 & 0.10 \\
+Dropout & 0.904 & 29.84 & n/d & 2.74 & 0.19 \\
+L2 & 0.880 & 56.12 & n/d & 5.63 & 0.33 \\
+Baseline & 0.880 & 88.03 & n/d & 19.75 & 0.79 \\
+Ruido gaussiano & 0.876 & 87.93 & n/d & 19.44 & 0.77 \\
+Parada temprana & 0.872 & 12.27 & n/d & 0.68 & 0.03 \\
+L1 & 0.880 & 88.03 & n/d & 19.75 & 0.79 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_01_cifar100}{Tabla 5.1 — CIFAR100: unique\_pctg y entropía H en fc1.}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{uniq 30 (\\%)} & \textbf{H 30} & \textbf{uniq 10 (\\%)} & \textbf{H 10} \\
+\midrule
+Aumento de datos & \textbf{0.447} & n/d & n/d & 40.95 & 1.33 \\
+BatchNorm & 0.418 & n/d & n/d & 75.10 & 1.61 \\
+Dropout & 0.361 & n/d & n/d & 29.49 & 1.20 \\
+L2 & 0.340 & n/d & n/d & 39.45 & 1.30 \\
+Baseline & 0.324 & n/d & n/d & 27.16 & 1.17 \\
+Ruido gaussiano & 0.328 & n/d & n/d & 34.42 & 1.23 \\
+Parada temprana & 0.339 & n/d & n/d & 39.85 & 1.28 \\
+L1 & 0.326 & n/d & n/d & 23.48 & 0.92 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_01_fashionmnist}{Tabla 5.1 — FashionMNIST: unique\_pctg y entropía H en fc1.}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Método} & \textbf{val\\_acc} & \textbf{uniq 30 (\\%)} & \textbf{H 30} & \textbf{uniq 10 (\\%)} & \textbf{H 10} \\
+\midrule
+Aumento de datos & 0.916 & n/d & n/d & 1.76 & 0.74 \\
+BatchNorm & \textbf{0.919} & n/d & n/d & 15.34 & 1.08 \\
+Dropout & 0.915 & n/d & n/d & 14.42 & 0.88 \\
+L2 & 0.908 & n/d & n/d & 37.50 & 1.14 \\
+Baseline & 0.911 & n/d & n/d & 82.72 & 1.44 \\
+Ruido gaussiano & 0.911 & n/d & n/d & 76.88 & 1.36 \\
+Parada temprana & 0.908 & n/d & n/d & 6.17 & 0.84 \\
+L1 & 0.900 & n/d & n/d & 1.64 & 0.62 \\
+\bottomrule
+\end{tabular}
+\end{table}

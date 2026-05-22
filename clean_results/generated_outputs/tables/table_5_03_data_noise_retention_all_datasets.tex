@@ -1,0 +1,71 @@
+\begin{table}{tab:5_03_cifar10}{Tabla 5.3 — CIFAR10: retención ante ruido máximo en datos de entrada (sigma=0.5).}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{reg\\_val} & \textbf{acc sigma=0} & \textbf{acc sigma=0.5} & \textbf{Retención (\\%)} \\
+\midrule
+Baseline & 0 & 68.53\% & 22.79\% & \textbf{33.3} \\
+L1 & 0.0001 & 65.38\% & 20.96\% & 32.1 \\
+Ruido gaussiano & 0.01 & 69.63\% & 20.79\% & 29.9 \\
+Parada temprana & 8 & 69.58\% & 20.63\% & 29.6 \\
+L2 & 0.0001 & 71.25\% & 17.77\% & 24.9 \\
+Dropout & 0.525 & 71.76\% & 16.46\% & 22.9 \\
+BatchNorm & 1 & 76.77\% & 16.10\% & 21.0 \\
+Aumento de datos & 2 & 77.68\% & 14.52\% & 18.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_03_svhn}{Tabla 5.3 — SVHN: retención ante ruido máximo en datos de entrada (sigma=0.5).}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{reg\\_val} & \textbf{acc sigma=0} & \textbf{acc sigma=0.5} & \textbf{Retención (\\%)} \\
+\midrule
+L2 & 0.0001 & 87.95\% & 37.02\% & \textbf{42.1} \\
+Baseline & 0 & 87.98\% & 33.56\% & 38.1 \\
+Ruido gaussiano & 0.01 & 87.83\% & 33.28\% & 37.9 \\
+Parada temprana & 3 & 87.00\% & 31.14\% & 35.8 \\
+Dropout & 0.5 & 90.21\% & 28.35\% & 31.4 \\
+L1 & 0.0001 & 84.78\% & 26.64\% & 31.4 \\
+BatchNorm & 1 & 89.21\% & 21.79\% & 24.4 \\
+Aumento de datos & 2 & 89.95\% & 15.27\% & 17.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_03_cifar100}{Tabla 5.3 — CIFAR100: retención ante ruido máximo en datos de entrada (sigma=0.5).}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{reg\\_val} & \textbf{acc sigma=0} & \textbf{acc sigma=0.5} & \textbf{Retención (\\%)} \\
+\midrule
+L2 & 0.0001 & 32.92\% & 4.05\% & \textbf{12.3} \\
+Ruido gaussiano & 0.01 & 28.32\% & 3.41\% & 12.1 \\
+Baseline & 0 & 27.04\% & 3.25\% & 12.0 \\
+Parada temprana & 8 & 33.93\% & 3.67\% & 10.8 \\
+L1 & 0.0001 & 27.24\% & 2.67\% & 9.8 \\
+Dropout & 0.3 & 33.69\% & 2.88\% & 8.6 \\
+Aumento de datos & 2 & 42.80\% & 2.01\% & 4.7 \\
+BatchNorm & 1 & 41.61\% & 1.92\% & 4.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_03_fashionmnist}{Tabla 5.3 — FashionMNIST: retención ante ruido máximo en datos de entrada (sigma=0.5).}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Método} & \textbf{reg\\_val} & \textbf{acc sigma=0} & \textbf{acc sigma=0.5} & \textbf{Retención (\\%)} \\
+\midrule
+Baseline & 0 & 91.10\% & 60.28\% & \textbf{66.2} \\
+Ruido gaussiano & 0.01 & 91.10\% & 56.91\% & 62.5 \\
+Parada temprana & 8 & 90.79\% & 53.67\% & 59.1 \\
+L2 & 0.0001 & 90.79\% & 50.18\% & 55.3 \\
+L1 & 0.0001 & 89.26\% & 41.88\% & 46.9 \\
+Dropout & 0.2 & 91.18\% & 41.96\% & 46.0 \\
+BatchNorm & 1 & 91.87\% & 20.09\% & 21.9 \\
+Aumento de datos & 2 & 91.34\% & 19.63\% & 21.5 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,71 @@
+\begin{table}{tab:5_04_cifar10}{Tabla 5.4 — CIFAR10: retención a sigma=0.15 de ruido en pesos por capa.}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Método} & \textbf{Ret. conv1 (\\%)} & \textbf{Ret. conv3 (\\%)} & \textbf{Ret. fc1 (\\%)} \\
+\midrule
+Parada temprana & 86.8 & 77.7 & 77.6 \\
+Dropout & 83.1 & 77.5 & \textbf{86.1} \\
+Ruido gaussiano & 96.6 & 75.5 & 67.7 \\
+Baseline & 89.2 & \textbf{77.9} & 67.1 \\
+Aumento de datos & 73.1 & 64.6 & 67.0 \\
+L1 & \textbf{97.2} & 65.5 & 54.2 \\
+L2 & 83.9 & 51.6 & 47.6 \\
+BatchNorm & 51.2 & 42.0 & 63.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_04_svhn}{Tabla 5.4 — SVHN: retención a sigma=0.15 de ruido en pesos por capa.}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Método} & \textbf{Ret. conv1 (\\%)} & \textbf{Ret. conv3 (\\%)} & \textbf{Ret. fc1 (\\%)} \\
+\midrule
+Dropout & 96.7 & \textbf{88.3} & \textbf{91.6} \\
+Parada temprana & 98.0 & 88.2 & 81.4 \\
+Ruido gaussiano & 99.6 & 86.3 & 72.2 \\
+Baseline & 98.8 & 88.2 & 68.9 \\
+L1 & 99.3 & 78.6 & 64.3 \\
+Aumento de datos & 85.0 & 70.3 & 61.2 \\
+BatchNorm & 50.4 & 48.8 & 64.6 \\
+L2 & \textbf{99.8} & 68.4 & 45.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_04_cifar100}{Tabla 5.4 — CIFAR100: retención a sigma=0.15 de ruido en pesos por capa.}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Método} & \textbf{Ret. conv1 (\\%)} & \textbf{Ret. conv3 (\\%)} & \textbf{Ret. fc1 (\\%)} \\
+\midrule
+Baseline & 89.5 & \textbf{76.2} & \textbf{50.2} \\
+Parada temprana & 86.0 & 68.9 & 49.4 \\
+Dropout & 80.6 & 60.9 & 48.7 \\
+Ruido gaussiano & \textbf{92.4} & 71.7 & 48.3 \\
+Aumento de datos & 58.0 & 48.1 & 40.2 \\
+L1 & 76.5 & 57.6 & 37.5 \\
+L2 & 90.3 & 60.3 & 33.1 \\
+BatchNorm & 30.8 & 24.4 & 35.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_04_fashionmnist}{Tabla 5.4 — FashionMNIST: retención a sigma=0.15 de ruido en pesos por capa.}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Método} & \textbf{Ret. conv1 (\\%)} & \textbf{Ret. conv3 (\\%)} & \textbf{Ret. fc1 (\\%)} \\
+\midrule
+Dropout & 96.9 & \textbf{84.4} & \textbf{90.0} \\
+Parada temprana & 98.1 & 81.8 & 83.5 \\
+Ruido gaussiano & \textbf{99.4} & 79.2 & 78.7 \\
+Baseline & 98.9 & 79.5 & 75.6 \\
+L1 & 99.4 & 81.3 & 73.8 \\
+L2 & 98.9 & 66.3 & 67.4 \\
+Aumento de datos & 96.7 & 57.7 & 81.3 \\
+BatchNorm & 82.2 & 38.9 & 63.7 \\
+\bottomrule
+\end{tabular}
+\end{table}

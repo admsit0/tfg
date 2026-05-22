@@ -1,0 +1,52 @@
+\begin{table}{tab:weight_noise_retention_sigma_0_01}{Retención de \textit{accuracy} ante ruido gaussiano en pesos ($\sigma$=0.01) por capa y método en los cuatro datasets evaluados.}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Método} & \textbf{Ret. conv1 (\%)} & \textbf{Ret. conv3 (\%)} & \textbf{Ret. fc1 (\%)} \\
+\midrule
+\multicolumn{4}{l}{\textbf{CIFAR-10}}\\
+\midrule
+Parada temprana & 99.8 & 99.8 & 99.8 \\
+L1 & 99.9 & 99.9 & 99.8 \\
+Ruido gaussiano & \textbf{100.2} & 100.1 & 99.8 \\
+Dropout & 99.7 & 99.9 & \textbf{99.9} \\
+Baseline & 99.9 & 99.7 & 99.7 \\
+Aumento de datos & 99.8 & 99.6 & 99.7 \\
+L2 & 100.0 & \textbf{100.2} & 99.5 \\
+BatchNorm & 99.7 & 99.3 & 99.8 \\
+\midrule
+\multicolumn{4}{l}{\textbf{SVHN}}\\
+\midrule
+Aumento de datos & 100.0 & 100.0 & \textbf{99.9} \\
+Dropout & 99.9 & 99.9 & 99.9 \\
+Parada temprana & 100.0 & 100.0 & 99.9 \\
+Baseline & 100.0 & 100.0 & 99.9 \\
+L1 & 100.0 & \textbf{100.1} & 99.8 \\
+Ruido gaussiano & 100.0 & 100.0 & 99.8 \\
+L2 & \textbf{100.0} & 99.9 & 99.7 \\
+BatchNorm & 99.8 & 99.8 & 99.7 \\
+\midrule
+\multicolumn{4}{l}{\textbf{CIFAR-100}}\\
+\midrule
+L1 & \textbf{100.2} & \textbf{100.9} & \textbf{99.9} \\
+Dropout & 99.8 & 99.9 & 99.7 \\
+Ruido gaussiano & 100.0 & 100.0 & 99.7 \\
+Parada temprana & 99.8 & 99.9 & 99.3 \\
+L2 & 100.0 & 100.1 & 99.3 \\
+Aumento de datos & 99.5 & 99.6 & 99.2 \\
+BatchNorm & 99.7 & 99.0 & 99.3 \\
+Baseline & 99.8 & 99.9 & 98.9 \\
+\midrule
+\multicolumn{4}{l}{\textbf{FashionMNIST}}\\
+\midrule
+Dropout & 100.0 & 100.0 & \textbf{100.1} \\
+Parada temprana & 100.0 & 100.0 & 100.0 \\
+Ruido gaussiano & 100.0 & 100.0 & 100.0 \\
+Aumento de datos & \textbf{100.0} & 99.9 & 100.0 \\
+Baseline & 100.0 & 100.0 & 99.9 \\
+L2 & 100.0 & \textbf{100.0} & 99.9 \\
+L1 & 100.0 & 100.0 & 99.9 \\
+BatchNorm & 100.0 & 99.8 & 99.9 \\
+\bottomrule
+\end{tabular}
+\end{table}

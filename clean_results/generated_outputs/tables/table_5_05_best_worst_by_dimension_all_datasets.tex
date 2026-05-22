@@ -1,0 +1,63 @@
+\begin{table}{tab:5_05_cifar10}{Tabla 5.5 — CIFAR10: mejor y peor método por dimensión de evaluación.}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Dimensión} & \textbf{Mejor} & \textbf{Peor} \\
+\midrule
+Accuracy & Aumento de datos (0.785) & Baseline (0.694) \\
+Robustez datos & Baseline (33.3) & Aumento de datos (18.7) \\
+Robustez pesos conv1 & L1 (97.2) & BatchNorm (51.2) \\
+Robustez pesos conv3 & Baseline (77.9) & BatchNorm (42.0) \\
+Robustez pesos fc1 & Dropout (86.1) & L2 (47.6) \\
+Consistencia inter-capas & Parada temprana (77.6) & BatchNorm (42.0) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_05_svhn}{Tabla 5.5 — SVHN: mejor y peor método por dimensión de evaluación.}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Dimensión} & \textbf{Mejor} & \textbf{Peor} \\
+\midrule
+Accuracy & Aumento de datos (0.905) & L1 (0.861) \\
+Robustez datos & L2 (42.1) & Aumento de datos (17.0) \\
+Robustez pesos conv1 & L2 (99.8) & BatchNorm (50.4) \\
+Robustez pesos conv3 & Dropout (88.3) & BatchNorm (48.8) \\
+Robustez pesos fc1 & Dropout (91.6) & L2 (45.9) \\
+Consistencia inter-capas & Dropout (88.3) & L2 (45.9) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_05_cifar100}{Tabla 5.5 — CIFAR100: mejor y peor método por dimensión de evaluación.}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Dimensión} & \textbf{Mejor} & \textbf{Peor} \\
+\midrule
+Accuracy & Aumento de datos (0.447) & Baseline (0.324) \\
+Robustez datos & L2 (12.3) & BatchNorm (4.6) \\
+Robustez pesos conv1 & Ruido gaussiano (92.4) & BatchNorm (30.8) \\
+Robustez pesos conv3 & Baseline (76.2) & BatchNorm (24.4) \\
+Robustez pesos fc1 & Baseline (50.2) & L2 (33.1) \\
+Consistencia inter-capas & Baseline (50.2) & BatchNorm (24.4) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}{tab:5_05_fashionmnist}{Tabla 5.5 — FashionMNIST: mejor y peor método por dimensión de evaluación.}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Dimensión} & \textbf{Mejor} & \textbf{Peor} \\
+\midrule
+Accuracy & BatchNorm (0.919) & L1 (0.900) \\
+Robustez datos & Baseline (66.2) & Aumento de datos (21.5) \\
+Robustez pesos conv1 & Ruido gaussiano (99.4) & BatchNorm (82.2) \\
+Robustez pesos conv3 & Dropout (84.4) & BatchNorm (38.9) \\
+Robustez pesos fc1 & Dropout (90.0) & BatchNorm (63.7) \\
+Consistencia inter-capas & Dropout (84.4) & BatchNorm (38.9) \\
+\bottomrule
+\end{tabular}
+\end{table}

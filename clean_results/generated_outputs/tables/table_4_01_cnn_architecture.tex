@@ -1,0 +1,15 @@
+\begin{table}{tab:4_01_cnn_architecture}{Arquitectura de la CNN utilizada en los experimentos.}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Capa} & \textbf{Tipo} & \textbf{Parámetros} & \textbf{Salida} \\
+\midrule
+conv1 & Conv2d + ReLU + MaxPool & 3->32, kernel 3x3 & 16x16x32 \\
+conv2 & Conv2d + ReLU + MaxPool & 32->64, kernel 3x3 & 8x8x64 \\
+conv3 & Conv2d + ReLU + MaxPool & 64->128, kernel 3x3 & 4x4x128 \\
+Flatten & - & - & 2048 \\
+fc1 & Linear + ReLU & 2048->128 & 128 \\
+fc2 & Linear (+ Softmax) & 128->10 & 10 \\
+\bottomrule
+\end{tabular}
+\end{table}
