@@ -95,25 +95,14 @@ python scripts/generate_figures.py
 
 ---
 
-## Key findings
 
-| Metric | Best method | Value |
-|--------|-------------|-------|
-| Validation accuracy (CIFAR-10) | Data Augmentation | 0.785 |
-| Data noise robustness (σ=0.3) | Gaussian Noise | ~80% retention |
-| Weight noise robustness fc1 (σ=0.15) | Dropout | 86.1% retention (Optimum), 79.9% (Custom) |
-| Worst weight robustness conv1 | Batch Normalization | ~41% retention (sharp minima) |
-| Optimal entropy zone (fc1) | All methods | H ∈ [1.1, 1.8] |
-| Optimal dispersion ratio (fc1) | All methods | ratio ∈ [0.27, 0.46] |
-
-L1 is the only technique that **hurts** generalization (−0.008 vs baseline). No single method dominates all dimensions — regularization is a multidimensional property.
-
----
 
 ## Datasets
 
 - **CIFAR-10** — 60,000 RGB 32×32 images, 10 classes (primary dataset)
 - **SVHN** — Street View House Numbers, 32×32 RGB (cross-domain validation)
+- **CIFAR-100** — 60,000 RGB 32×32 images, 100 classes (cross-domain validation)
+- **Fashion-MNIST** — 70,000 RGB 32×32 images, 10 classes (cross-domain validation)
 
 ---
 
